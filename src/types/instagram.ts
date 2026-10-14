@@ -11,6 +11,7 @@ export interface InstagramAccount {
   profileUrl: string;
   followedAt?: number; // epoch timestamp in ms if available in export
   avatarUrl?: string; // only if available from authorized source, otherwise undefined
+  bio?: string; // profile biography if available from data export
   status: ReviewStatus;
   statusUpdatedAt?: number;
   notes?: string;

@@ -8,6 +8,7 @@ interface AccountTableProps {
   onToggleSelect: (id: string) => void;
   onOpenReview: (account: InstagramAccount) => void;
   onQuickToggleKeep: (account: InstagramAccount) => void;
+  onToggleStatus: (account: InstagramAccount) => void;
   onOpenInstagramTab: (url: string) => void;
 }
 
@@ -17,6 +18,7 @@ export const AccountTable: React.FC<AccountTableProps> = ({
   onToggleSelect,
   onOpenReview,
   onQuickToggleKeep,
+  onToggleStatus,
   onOpenInstagramTab,
 }) => {
   const renderStatusBadge = (status: ReviewStatus) => {
@@ -143,6 +145,30 @@ export const AccountTable: React.FC<AccountTableProps> = ({
                         <span>Revisar</span>
                         <ArrowRight className="w-3 h-3" />
                       </button>
+
+                      {onToggleStatus && (
+                        <button
+                          onClick={() => onToggleStatus(account)}
+                          title={account.status === 'completed' ? 'Retornar a pendente' : 'Marcar como verificado'}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer ${
+                            account.status === 'completed'
+                              ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                              : 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                          }`}
+                        >
+                          {account.status === 'completed' ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Verificado</span>
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="w-3 h-3" />
+                              <span>Pendente</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -4,7 +4,6 @@ import {
   LayoutGrid,
   List,
   CheckSquare,
-  Square,
   ArrowUpDown,
   Shield,
   EyeOff,
@@ -22,13 +21,12 @@ interface FilterToolbarProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   selectedCount: number;
-  totalFilteredCount: number;
-  currentPageCount: number;
-  isPageSelected: boolean;
-  onSelectAllPage: () => void;
-  onSelectAllFiltered: () => void;
+  currentPageCount?: number;
+  isPageSelected?: boolean;
+  onSelectAllPage?: () => void;
+  selectedPageCount?: number;
   onDeselectAll: () => void;
-  onOpenSelectedTabs: () => void;
+  onOpenSelectedTabs?: () => void;
   onBatchAction: (action: 'complete' | 'reset_pending' | 'keep' | 'ignore') => void;
   statusCounts: Record<ReviewStatus | 'all', number>;
 }
@@ -39,18 +37,15 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
   viewMode,
   onViewModeChange,
   selectedCount,
-  totalFilteredCount,
   currentPageCount,
   isPageSelected,
   onSelectAllPage,
-  onSelectAllFiltered,
+  selectedPageCount,
   onDeselectAll,
   onOpenSelectedTabs,
   onBatchAction,
   statusCounts,
 }) => {
-  const isAllFilteredSelected = totalFilteredCount > 0 && selectedCount === totalFilteredCount;
-
   return (
     <div className="space-y-3">
       {/* Search and Primary Filters */}
@@ -157,7 +152,7 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
                 : 'bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'
             }`}
           >
-            Excluídos ({statusCounts.completed})
+            Verificados ({statusCounts.completed})
           </button>
 
           <button
@@ -196,22 +191,7 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
             title="Selecionar todas as contas visíveis nesta página"
           >
             {isPageSelected ? <CheckSquare className="w-3.5 h-3.5 text-rose-600" /> : <CopyCheck className="w-3.5 h-3.5 text-neutral-400" />}
-            <span>{isPageSelected ? 'Desmarcar página' : `Selecionar página (${currentPageCount})`}</span>
-          </button>
-
-          {/* Select all filtered */}
-          <button
-            onClick={isAllFilteredSelected ? onDeselectAll : onSelectAllFiltered}
-            className="flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white px-2 py-1 rounded cursor-pointer"
-          >
-            {isAllFilteredSelected ? (
-              <CheckSquare className="w-3.5 h-3.5 text-rose-600" />
-            ) : (
-              <Square className="w-3.5 h-3.5" />
-            )}
-            <span>
-              {isAllFilteredSelected ? 'Desmarcar todos' : `Selecionar todos (${totalFilteredCount})`}
-            </span>
+            <span>{isPageSelected ? 'Desmarcar todos' : `Selecionar todos (${currentPageCount})`}</span>
           </button>
         </div>
       </div>
@@ -230,24 +210,24 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* O BOTÃO MAIS IMPORTANTE: Abrir guias para cada perfil */}
+            {/* O BOTÃO MAIS IMPORTANTE: Abrir guias para cada perfil da página atual */}
             <button
               onClick={onOpenSelectedTabs}
               className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Abre uma nova guia no navegador para cada perfil selecionado"
+              title="Abre uma nova guia no navegador para cada perfil selecionado nesta página"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>Abrir {selectedCount} em Novas Guias</span>
+              <span>Abrir {selectedPageCount ?? 0} selecionados da página</span>
             </button>
 
             {/* Batch toggle buttons */}
             <button
               onClick={() => onBatchAction('complete')}
-              title="Marcar selecionados como Excluído (Deixou de seguir)"
+              title="Marcar selecionados como Verificado (Deixou de seguir)"
               className="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs flex items-center gap-1 cursor-pointer transition-colors"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Marcar como Excluído</span>
+              <span>Marcar como Verificado</span>
             </button>
 
             <button

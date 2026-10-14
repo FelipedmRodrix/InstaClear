@@ -187,21 +187,58 @@ export default function App() {
     });
   };
 
-  const handleSelectAllFiltered = () => {
-    const next = new Set<string>();
-    filteredAccounts.forEach((acc) => next.add(acc.id));
-    setSelectedIds(next);
-  };
-
   const handleDeselectAll = () => {
     setSelectedIds(new Set());
   };
 
-  const handleBatchAction = (action: 'keep' | 'ignore' | 'reset_pending') => {
+  // Seleciona/desmarca todos os perfis da página atual
+  const handleSelectAllPage = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      paginatedAccounts.forEach((acc) => next.add(acc.id));
+      return next;
+    });
+  };
+
+  const currentPageCount = paginatedAccounts.length;
+  const isPageSelected =
+    currentPageCount > 0 && paginatedAccounts.every((acc) => selectedIds.has(acc.id));
+  const selectedPageCount = paginatedAccounts.filter((acc) => selectedIds.has(acc.id)).length;
+
+  // Abre em novas guias apenas os selecionados da página atual e já marca como Verificado
+  const handleOpenSelectedPageTabs = () => {
+    const pageAccounts = paginatedAccounts.filter((acc) => selectedIds.has(acc.id));
+    if (pageAccounts.length === 0) return;
+
+    pageAccounts.forEach((acc) => {
+      window.open(acc.profileUrl, '_blank', 'noopener,noreferrer');
+    });
+
+    const openedIds = new Set(pageAccounts.map((acc) => acc.id));
+    const updated = accounts.map((acc) =>
+      openedIds.has(acc.id)
+        ? {
+            ...acc,
+            status: 'completed' as ReviewStatus,
+            statusUpdatedAt: Date.now(),
+            isWhitelisted: false,
+          }
+        : acc
+    );
+    setAccounts(updated);
+
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      openedIds.forEach((id) => next.delete(id));
+      return next;
+    });
+  };
+
+  const handleBatchAction = (action: 'keep' | 'ignore' | 'reset_pending' | 'complete') => {
     if (selectedIds.size === 0) return;
 
     const targetStatus: ReviewStatus =
-      action === 'keep' ? 'kept' : action === 'ignore' ? 'ignored' : 'pending';
+      action === 'keep' ? 'kept' : action === 'ignore' ? 'ignored' : action === 'complete' ? 'completed' : 'pending';
 
     const updated = accounts.map((acc) => {
       if (selectedIds.has(acc.id)) {
@@ -344,6 +381,17 @@ export default function App() {
     if (nextIdx < pendingAccountsList.length) {
       setReviewModalAccount(pendingAccountsList[nextIdx]);
     }
+  };
+
+  // Toggle between 'pending' and 'completed' (Verificado)
+  const handleToggleStatus = (account: InstagramAccount) => {
+    const newStatus: ReviewStatus = account.status === 'completed' ? 'pending' : 'completed';
+    updateAccountStatus(
+      account.id,
+      newStatus,
+      newStatus === 'completed' ? 'Marcado como verificado' : 'Retornado para pendente',
+      false
+    );
   };
 
   // Quick toggle keep from card
@@ -490,9 +538,12 @@ export default function App() {
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
                   selectedCount={selectedIds.size}
-                  totalFilteredCount={filteredAccounts.length}
-                  onSelectAllFiltered={handleSelectAllFiltered}
+                  currentPageCount={currentPageCount}
+                  isPageSelected={isPageSelected}
+                  onSelectAllPage={handleSelectAllPage}
+                  selectedPageCount={selectedPageCount}
                   onDeselectAll={handleDeselectAll}
+                  onOpenSelectedTabs={handleOpenSelectedPageTabs}
                   onBatchAction={handleBatchAction}
                   statusCounts={statusCounts}
                 />
@@ -516,15 +567,15 @@ export default function App() {
                 ) : viewMode === 'cards' ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {paginatedAccounts.map((account) => (
-                      <AccountCard
-                        key={account.id}
-                        account={account}
-                        isSelected={selectedIds.has(account.id)}
-                        onToggleSelect={handleToggleSelect}
-                        onOpenReview={handleOpenReviewForAccount}
-                        onQuickToggleKeep={handleQuickToggleKeep}
-                        onOpenInstagramTab={(url) => window.open(url, '_blank', 'noopener,noreferrer')}
-                      />
+                        <AccountCard
+                          key={account.id}
+                          account={account}
+                          isSelected={selectedIds.has(account.id)}
+                          onToggleSelect={handleToggleSelect}
+                          onQuickToggleKeep={handleQuickToggleKeep}
+                          onToggleStatus={handleToggleStatus}
+                          onOpenInstagramTab={(url) => window.open(url, '_blank', 'noopener,noreferrer')}
+                        />
                     ))}
                   </div>
                 ) : (
@@ -534,6 +585,7 @@ export default function App() {
                     onToggleSelect={handleToggleSelect}
                     onOpenReview={handleOpenReviewForAccount}
                     onQuickToggleKeep={handleQuickToggleKeep}
+                    onToggleStatus={handleToggleStatus}
                     onOpenInstagramTab={(url) => window.open(url, '_blank', 'noopener,noreferrer')}
                   />
                 )}

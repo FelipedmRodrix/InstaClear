@@ -51,7 +51,7 @@ export const AccountCard: React.FC<AccountCardProps> = ({
           </span>
         ) : isExcluded ? (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-            <CheckCircle2 className="w-3 h-3" /> Excluído
+            <CheckCircle2 className="w-3 h-3" /> Verificado
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
@@ -108,6 +108,12 @@ export const AccountCard: React.FC<AccountCardProps> = ({
             </div>
           )}
 
+          {account.bio && (
+            <p className="text-[11px] text-neutral-400 dark:text-neutral-500 line-clamp-1 mt-1 break-words">
+              {account.bio}
+            </p>
+          )}
+
           <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-rose-600 dark:text-rose-400 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
             <span>Não te segue de volta</span>
@@ -121,7 +127,7 @@ export const AccountCard: React.FC<AccountCardProps> = ({
         </div>
       </div>
 
-      {/* Bottom Actions: Open link and Direct "Pendente / Excluído" button */}
+      {/* Bottom Actions: Open link and Direct "Pendente / Verificado" button */}
       <div className="mt-5 pt-3 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <button
@@ -146,10 +152,10 @@ export const AccountCard: React.FC<AccountCardProps> = ({
           </button>
         </div>
 
-        {/* SOLICITADO: No lugar de revisar, troque apenas por um botão Pendente ou Excluído */}
+        {/* SOLICITADO: No lugar de revisar, troque apenas por um botão Pendente ou Verificado */}
         <button
           onClick={() => onToggleStatus(account)}
-          title={isExcluded ? 'Clique para retornar a Pendente' : 'Clique para marcar como Excluído'}
+          title={isExcluded ? 'Clique para retornar a Pendente' : 'Clique para marcar como Verificado'}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95 ${
             isExcluded
               ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -159,7 +165,7 @@ export const AccountCard: React.FC<AccountCardProps> = ({
           {isExcluded ? (
             <>
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Excluído</span>
+              <span>Verificado</span>
             </>
           ) : (
             <>

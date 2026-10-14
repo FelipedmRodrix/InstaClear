@@ -186,6 +186,12 @@ export const AssistedReviewModal: React.FC<AssistedReviewModalProps> = ({
                 </p>
               )}
 
+              {account.bio && (
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 break-words">
+                  {account.bio}
+                </p>
+              )}
+
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
                 {account.followedAt ? (
                   <>Você segue esta conta desde <strong>{new Date(account.followedAt).toLocaleDateString('pt-BR')}</strong></>
