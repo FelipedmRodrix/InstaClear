@@ -2,26 +2,25 @@ import React, { useState, useRef } from 'react';
 import {
   Upload,
   FileArchive,
-  Sparkles,
   HelpCircle,
   AlertTriangle,
   FileCode,
   ClipboardPaste,
   CheckCircle2,
   FolderOpen,
-  ArrowRight
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import { parseInstagramZip, parseIndividualFiles, parseCombinedTextOrHtml } from '../services/zipParser';
-import { getSampleDataset } from '../services/sampleData';
-import { getUserUploadedDataset } from '../services/realUserData';
 import { ImportAuditReport, InstagramAccount } from '../types/instagram';
 
 interface FileImporterProps {
   onImportComplete: (accounts: InstagramAccount[], report: ImportAuditReport) => void;
   hasExistingData: boolean;
+  onClearComplete?: () => void;
 }
 
-export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, hasExistingData }) => {
+export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, hasExistingData, onClearComplete }) => {
   const [activeTab, setActiveTab] = useState<'upload' | 'paste' | 'dual'>('upload');
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -189,43 +188,30 @@ export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, ha
     }
   };
 
-  const loadSample = () => {
-    const { accounts, report } = getSampleDataset();
-    onImportComplete(accounts, report);
-  };
-
-  const loadUserProvidedSample = () => {
-    const { accounts, report } = getUserUploadedDataset();
-    onImportComplete(accounts, report);
+  const clearImport = () => {
+    // Reset FileImporter's local state
+    setActiveTab('upload');
+    setIsDragging(false);
+    setIsLoading(false);
+    setProgress({ percent: 0, status: '' });
+    setErrorMsg(null);
+    setInfoMsg(null);
+    setPastedContent('');
+    setSelectedFollowingFile(null);
+    setSelectedFollowersFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (multipleFilesInputRef.current) multipleFilesInputRef.current.value = '';
+    if (followingInputRef.current) followingInputRef.current.value = '';
+    if (followersInputRef.current) followersInputRef.current.value = '';
+    
+    // Notify parent App component to clear accounts
+    if (onClearComplete) {
+      onClearComplete();
+    }
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Real Dataset Highlight Card */}
-      <div className="bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-purple-500/10 border border-rose-500/20 dark:border-rose-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5 text-center sm:text-left">
-          <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
-              Exportação Oficial Carregada e Pronta
-            </h4>
-            <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-0.5">
-              Identificamos com sucesso <strong>408 perfis que não te seguem de volta</strong> a partir dos arquivos enviados!
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={loadUserProvidedSample}
-          className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0 cursor-pointer whitespace-nowrap"
-        >
-          <span>Visualizar 408 Perfis Agora</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
-
       {/* Tabs */}
       <div className="flex items-center justify-center gap-2 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl max-w-md mx-auto text-xs font-semibold">
         <button
@@ -259,6 +245,19 @@ export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, ha
           Colar Código HTML
         </button>
       </div>
+
+      {/* Clear button - only shown when there's existing data */}
+      {hasExistingData && onClearComplete && (
+        <div className="flex justify-center">
+          <button
+            onClick={clearImport}
+            className="px-4 py-2 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 font-medium text-xs rounded-xl border border-neutral-300 dark:border-neutral-700 transition-all flex items-center gap-2 cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Limpar Importação</span>
+          </button>
+        </div>
+      )}
 
       {/* Tab 1: Upload (ZIP or Any dropped files) */}
       {activeTab === 'upload' && (
@@ -312,28 +311,13 @@ export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, ha
                 </p>
               </div>
             ) : (
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <div className="mt-6">
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-semibold text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <Upload className="w-4 h-4" />
                   Selecionar Arquivo (.ZIP / .HTML)
-                </button>
-
-                <button
-                  onClick={loadUserProvidedSample}
-                  className="px-4 py-2.5 bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 font-semibold text-xs rounded-xl transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4 text-amber-400" />
-                  Carregar Amostra Real (408 Perfis)
-                </button>
-
-                <button
-                  onClick={loadSample}
-                  className="px-4 py-2.5 border border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 text-neutral-700 dark:text-neutral-300 font-medium text-xs rounded-xl transition-all cursor-pointer"
-                >
-                  Demonstração Rápida (15 Contas)
                 </button>
               </div>
             )}

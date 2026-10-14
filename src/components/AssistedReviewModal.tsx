@@ -11,9 +11,12 @@ import {
   EyeOff,
   CameraOff,
   Sparkles,
-  Info
+  Info,
+  Clock,
+  Calendar
 } from 'lucide-react';
 import { InstagramAccount, ReviewSession } from '../types/instagram';
+import { normalizeSession } from '../utils/safetyLimits';
 
 interface AssistedReviewModalProps {
   account: InstagramAccount | null;
@@ -51,16 +54,21 @@ export const AssistedReviewModal: React.FC<AssistedReviewModalProps> = ({
   const [profileOpened, setProfileOpened] = useState(false);
   const [showLimitWarning, setShowLimitWarning] = useState(false);
 
+  const normalizedSession = normalizeSession(session);
+
+  const hourlyExceeded = normalizedSession.unfollowsThisHour >= normalizedSession.hourlySafetyLimit;
+  const dailyExceeded = normalizedSession.unfollowsToday >= normalizedSession.dailySafetyLimit;
+
   useEffect(() => {
     // Reset opened state when account changes
     setProfileOpened(false);
   }, [account?.id]);
 
   useEffect(() => {
-    if (session.completedThisSession >= session.hourlySafetyLimit) {
+    if (hourlyExceeded || dailyExceeded) {
       setShowLimitWarning(true);
     }
-  }, [session.completedThisSession, session.hourlySafetyLimit]);
+  }, [hourlyExceeded, dailyExceeded]);
 
   const handleOpenInstagram = useCallback(() => {
     if (!account) return;
@@ -113,16 +121,29 @@ export const AssistedReviewModal: React.FC<AssistedReviewModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Safety counter pill */}
+            {/* Safety counter pills - Hourly & Daily */}
             <div
               className={`px-2.5 py-1 rounded-full text-[11px] font-medium flex items-center gap-1.5 ${
-                session.completedThisSession >= session.hourlySafetyLimit
+                hourlyExceeded
                   ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
                   : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
               }`}
-              title="Quantidade de unfollows confirmados nesta hora"
+              title="Unfollows nesta hora"
             >
-              <span className="tabular-nums font-semibold">{session.completedThisSession}</span> / {session.hourlySafetyLimit} hora
+              <Clock className="w-3 h-3" />
+              <span className="tabular-nums font-semibold">{normalizedSession.unfollowsThisHour}</span> / {normalizedSession.hourlySafetyLimit} h
+            </div>
+
+            <div
+              className={`px-2.5 py-1 rounded-full text-[11px] font-medium flex items-center gap-1.5 ${
+                dailyExceeded
+                  ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
+                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
+              }`}
+              title="Unfollows hoje"
+            >
+              <Calendar className="w-3 h-3" />
+              <span className="tabular-nums font-semibold">{normalizedSession.unfollowsToday}</span> / {normalizedSession.dailySafetyLimit} dia
             </div>
 
             <button
@@ -136,15 +157,38 @@ export const AssistedReviewModal: React.FC<AssistedReviewModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6">
-          {/* Limit Warning banner if hourly limit exceeded */}
+          {/* Limit Warning banner if hourly or daily limit exceeded */}
           {showLimitWarning && (
             <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <strong>Atenção ao limite do Instagram:</strong> Você já confirmou {session.completedThisSession} unfollows nesta sessão. Para a segurança da sua conta, sugerimos pausar alguns minutos antes de continuar.
+              <div className="space-y-1">
+                <strong>Atenção aos limites de segurança do Instagram:</strong>
+                <div className="space-y-1 mt-1">
+                  {hourlyExceeded && (
+                    <div>
+                      Limite por hora atingido: {normalizedSession.unfollowsThisHour} de {normalizedSession.hourlySafetyLimit} unfollows nesta hora.
+                    </div>
+                  )}
+                  {dailyExceeded && (
+                    <div>
+                      Limite diário atingido: {normalizedSession.unfollowsToday} de {normalizedSession.dailySafetyLimit} unfollows hoje.
+                    </div>
+                  )}
+                </div>
+                <div className="mt-1">
+                  Para a segurança da sua conta, sugerimos pausar antes de continuar. O Instagram pode sinalizar atividades repetitivas.
+                </div>
               </div>
             </div>
           )}
+
+          {/* Static Snapshot Notice (Retrato Estático) */}
+          <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 text-blue-900 dark:text-blue-200 text-xs flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <div>
+              <strong>Retrato Estático:</strong> Os dados representam exatamente o momento em que a exportação oficial foi gerada pelo Instagram. Caso alguém tenha te seguido após o download, confira o perfil antes de confirmar.
+            </div>
+          </div>
 
           {/* Account Profile Card Highlight */}
           <div className="bg-neutral-50 dark:bg-neutral-850 border border-neutral-200/80 dark:border-neutral-750 rounded-2xl p-5 flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-5">

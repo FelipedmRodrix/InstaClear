@@ -501,24 +501,38 @@ export function parseCombinedTextOrHtml(rawText: string, fileName = 'Texto Colad
 
     const splitIndex = rawText.indexOf('followers_1.html');
     if (splitIndex !== -1) {
-      const followingIndex = rawText.indexOf('following.html');
+      let followingIndex = rawText.indexOf('following.html');
+      if (followingIndex === -1) {
+        followingIndex = rawText.indexOf('<title>Seguindo</title>');
+      }
       if (followingIndex > splitIndex) {
         followersPart = rawText.slice(splitIndex, followingIndex);
         followingPart = rawText.slice(followingIndex);
-      } else {
+      } else if (followingIndex !== -1) {
         followingPart = rawText.slice(followingIndex, splitIndex);
+        followersPart = rawText.slice(splitIndex);
+      } else {
+        followingPart = rawText.slice(0, splitIndex);
         followersPart = rawText.slice(splitIndex);
       }
     } else {
       // Split by title
       const titleFollowers = rawText.indexOf('<title>Seguidores</title>');
       const titleFollowing = rawText.indexOf('<title>Seguindo</title>');
-      if (titleFollowers < titleFollowing) {
-        followersPart = rawText.slice(titleFollowers, titleFollowing);
+      if (titleFollowers !== -1 && titleFollowing !== -1) {
+        if (titleFollowers < titleFollowing) {
+          followersPart = rawText.slice(titleFollowers, titleFollowing);
+          followingPart = rawText.slice(titleFollowing);
+        } else {
+          followingPart = rawText.slice(titleFollowing, titleFollowers);
+          followersPart = rawText.slice(titleFollowers);
+        }
+      } else if (titleFollowers !== -1) {
+        followersPart = rawText.slice(titleFollowers);
+      } else if (titleFollowing !== -1) {
         followingPart = rawText.slice(titleFollowing);
       } else {
-        followingPart = rawText.slice(titleFollowing, titleFollowers);
-        followersPart = rawText.slice(titleFollowers);
+        followingPart = rawText;
       }
     }
 

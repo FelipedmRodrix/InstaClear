@@ -14,20 +14,21 @@ import { exportToCSV, exportToJSON, exportToTxtList } from './services/exportSer
 import { InstagramAccount, ImportAuditReport, ActionHistoryEntry, ReviewSession, FilterOptions, ViewMode, ReviewStatus } from './types/instagram';
 import { Header } from './components/Header';
 import { DashboardStats } from './components/DashboardStats';
-import { SafetyNotice } from './components/SafetyNotice';
 import { FilterToolbar } from './components/FilterToolbar';
 import { AccountCard } from './components/AccountCard';
 import { AccountTable } from './components/AccountTable';
 import { FileImporter } from './components/FileImporter';
 import { AssistedReviewModal } from './components/AssistedReviewModal';
+import { SafetyLimitDialog } from './components/SafetyLimitDialog';
 import { ImportReportModal } from './components/ImportReportModal';
 import { ExtensionGuideModal } from './components/ExtensionGuideModal';
 import { HistoryModal } from './components/HistoryModal';
 import { ClearDataDialog } from './components/ClearDataDialog';
 import { ChevronLeft, ChevronRight, UploadCloud, ShieldAlert, Sparkles, Download, Layers } from 'lucide-react';
 import { getUserUploadedDataset } from './services/realUserData';
+import { normalizeSession } from './utils/safetyLimits';
 
-const ITEMS_PER_PAGE = 36;
+const ITEMS_PER_PAGE = 20;
 
 export default function App() {
   // Persistence state
@@ -85,6 +86,23 @@ export default function App() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState<boolean>(false);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
+
+  // Safety limit dialog state
+  const [showSafetyLimitDialog, setShowSafetyLimitDialog] = useState<boolean>(false);
+  const [pendingUnfollowAccount, setPendingUnfollowAccount] = useState<InstagramAccount | null>(null);
+
+  // Normalize session to reset hourly/daily buckets when they roll over
+  const effectiveSession = useMemo(() => normalizeSession(session), [session]);
+
+  useEffect(() => {
+    const normalized = normalizeSession(session);
+    if (
+      normalized.hourBucketStart !== session.hourBucketStart ||
+      normalized.dayBucket !== session.dayBucket
+    ) {
+      setSession(normalized);
+    }
+  }, [session]);
 
   // Sync state changes to storage
   useEffect(() => {
@@ -292,11 +310,16 @@ export default function App() {
 
       // Update session if unfollow confirmed
       if (newStatus === 'completed') {
-        setSession((prev) => ({
-          ...prev,
-          completedThisSession: prev.completedThisSession + 1,
-          lastActionTimestamp: Date.now(),
-        }));
+        setSession((prev) => {
+          const normalized = normalizeSession(prev);
+          return {
+            ...normalized,
+            completedThisSession: normalized.completedThisSession + 1,
+            unfollowsThisHour: normalized.unfollowsThisHour + 1,
+            unfollowsToday: normalized.unfollowsToday + 1,
+            lastActionTimestamp: Date.now(),
+          };
+        });
       }
     },
     []
@@ -329,12 +352,34 @@ export default function App() {
   };
 
   const handleConfirmUnfollow = (account: InstagramAccount) => {
+    const normalized = normalizeSession(session);
+    const hourlyExceeded = normalized.unfollowsThisHour >= normalized.hourlySafetyLimit;
+    const dailyExceeded = normalized.unfollowsToday >= normalized.dailySafetyLimit;
+
+    if (hourlyExceeded || dailyExceeded) {
+      setPendingUnfollowAccount(account);
+      setShowSafetyLimitDialog(true);
+      return;
+    }
+
+    performUnfollow(account);
+  };
+
+  const performUnfollow = (account: InstagramAccount) => {
     updateAccountStatus(
       account.id,
       'completed',
       'Confirmado que deixou de seguir no Instagram'
     );
     advanceToNextReviewAccount();
+  };
+
+  const handleConfirmUnfollowWithLimit = () => {
+    if (pendingUnfollowAccount) {
+      performUnfollow(pendingUnfollowAccount);
+      setPendingUnfollowAccount(null);
+      setShowSafetyLimitDialog(false);
+    }
   };
 
   const handleKeepFollowing = (account: InstagramAccount) => {
@@ -444,6 +489,15 @@ export default function App() {
     setCurrentTab('dashboard');
   };
 
+  const handleClearImport = () => {
+    setAccounts([]);
+    setReport(null);
+    setSelectedIds(new Set());
+    setCurrentPage(1);
+    setCurrentTab('dashboard');
+    clearAllLocalData();
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 flex flex-col font-sans">
       {/* Header */}
@@ -516,13 +570,11 @@ export default function App() {
                 <FileImporter
                   onImportComplete={handleImportComplete}
                   hasExistingData={false}
+                  onClearComplete={handleClearImport}
                 />
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Safety Warning */}
-                <SafetyNotice />
-
                 {/* Dashboard Stats */}
                 <DashboardStats
                   accounts={accounts}
@@ -643,6 +695,7 @@ export default function App() {
             <FileImporter
               onImportComplete={handleImportComplete}
               hasExistingData={accounts.length > 0}
+              onClearComplete={handleClearImport}
             />
           </div>
         )}
@@ -670,7 +723,19 @@ export default function App() {
         onNext={handleNextReviewAccount}
         hasPrev={currentReviewIndex > 0}
         hasNext={currentReviewIndex < pendingAccountsList.length - 1}
-        session={session}
+        session={effectiveSession}
+      />
+
+      {/* Safety Limit Confirmation Dialog */}
+      <SafetyLimitDialog
+        isOpen={showSafetyLimitDialog}
+        onClose={() => {
+          setShowSafetyLimitDialog(false);
+          setPendingUnfollowAccount(null);
+        }}
+        onConfirm={handleConfirmUnfollowWithLimit}
+        account={pendingUnfollowAccount}
+        session={effectiveSession}
       />
 
       {/* Import Audit Report Modal */}

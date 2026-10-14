@@ -1,4 +1,5 @@
 import { InstagramAccount, ImportAuditReport, ActionHistoryEntry, ReviewSession, ReviewStatus } from '../types/instagram';
+import { normalizeSession, getStartOfHour, getTodayKey } from '../utils/safetyLimits';
 
 const STORAGE_KEYS = {
   ACCOUNTS: 'instaclean_accounts_v1',
@@ -68,25 +69,23 @@ export function saveActionHistory(history: ActionHistoryEntry[]): void {
 }
 
 export function loadReviewSession(): ReviewSession {
+  const now = Date.now();
   const defaultSession: ReviewSession = {
-    startedAt: Date.now(),
+    startedAt: now,
     completedThisSession: 0,
     hourlySafetyLimit: 15,
     dailySafetyLimit: 100,
+    unfollowsThisHour: 0,
+    unfollowsToday: 0,
+    hourBucketStart: getStartOfHour(now),
+    dayBucket: getTodayKey(now),
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SESSION);
     if (!raw) return defaultSession;
     const parsed = JSON.parse(raw);
-    // If last action was more than 1 hour ago, reset session count
-    if (parsed.lastActionTimestamp && Date.now() - parsed.lastActionTimestamp > 60 * 60 * 1000) {
-      return {
-        ...parsed,
-        startedAt: Date.now(),
-        completedThisSession: 0,
-      };
-    }
-    return parsed;
+    const merged = { ...defaultSession, ...parsed };
+    return normalizeSession(merged);
   } catch (err) {
     return defaultSession;
   }

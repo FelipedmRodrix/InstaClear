@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserMinus, Users, UserCheck, Shield, CheckCircle2, Clock } from 'lucide-react';
+import { UserMinus, CheckCircle2, Clock } from 'lucide-react';
 import { ImportAuditReport, InstagramAccount } from '../types/instagram';
 
 interface DashboardStatsProps {
@@ -26,42 +26,14 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
   return (
     <div className="space-y-4">
       {/* Primary KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* Total Seguindo */}
-        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3.5 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400">
-            <span className="text-xs font-medium">Seguindo</span>
-            <Users className="w-4 h-4 text-neutral-400" />
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-neutral-900 dark:text-white tabular-nums">
-            {report?.totalFollowing ?? accounts.length}
-          </div>
-          <div className="mt-1 text-[11px] text-neutral-400 dark:text-neutral-500 truncate">
-            Total na sua conta
-          </div>
-        </div>
-
-        {/* Total Seguidores */}
-        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-3.5 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400">
-            <span className="text-xs font-medium">Seguidores</span>
-            <UserCheck className="w-4 h-4 text-neutral-400" />
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-neutral-900 dark:text-white tabular-nums">
-            {report?.totalFollowers ?? '—'}
-          </div>
-          <div className="mt-1 text-[11px] text-neutral-400 dark:text-neutral-500 truncate">
-            {report?.mutualCount !== undefined ? `${report.mutualCount} mútuos` : 'Registrados'}
-          </div>
-        </div>
-
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {/* Não Seguem de Volta (Dominant Metric) */}
         <button
           onClick={() => onFilterByStatus('all')}
-          className={`bg-white dark:bg-neutral-900 border text-left rounded-xl p-3.5 flex flex-col justify-between transition-all cursor-pointer ${
+          className={`bg-white dark:bg-neutral-900 border text-left rounded-xl p-4 flex flex-col justify-between transition-all cursor-pointer ${
             activeStatusFilter === 'all'
-              ? 'border-rose-500 ring-2 ring-rose-500/10 dark:ring-rose-500/20'
-              : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'
+              ? 'border-rose-500 ring-2 ring-rose-500/10 dark:ring-rose-500/20 shadow-sm'
+              : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
           }`}
         >
           <div className="flex items-center justify-between text-rose-600 dark:text-rose-400">
@@ -79,10 +51,10 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
         {/* Pendentes */}
         <button
           onClick={() => onFilterByStatus('pending')}
-          className={`bg-white dark:bg-neutral-900 border text-left rounded-xl p-3.5 flex flex-col justify-between transition-all cursor-pointer ${
+          className={`bg-white dark:bg-neutral-900 border text-left rounded-xl p-4 flex flex-col justify-between transition-all cursor-pointer ${
             activeStatusFilter === 'pending'
-              ? 'border-amber-500 ring-2 ring-amber-500/10'
-              : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'
+              ? 'border-amber-500 ring-2 ring-amber-500/10 shadow-sm'
+              : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
           }`}
         >
           <div className="flex items-center justify-between text-amber-600 dark:text-amber-400">
@@ -100,10 +72,10 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
         {/* Unfollowed / Concluídos */}
         <button
           onClick={() => onFilterByStatus('completed')}
-          className={`bg-white dark:bg-neutral-900 border text-left rounded-xl p-3.5 flex flex-col justify-between transition-all cursor-pointer ${
+          className={`bg-white dark:bg-neutral-900 border text-left rounded-xl p-4 flex flex-col justify-between transition-all cursor-pointer ${
             activeStatusFilter === 'completed'
-              ? 'border-emerald-500 ring-2 ring-emerald-500/10'
-              : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/10 shadow-sm'
+              : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
           }`}
         >
           <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400">
@@ -117,40 +89,14 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
             Confirmados por você
           </div>
         </button>
-
-        {/* Mantidos (Whitelist) */}
-        <button
-          onClick={() => onFilterByStatus('kept')}
-          className={`bg-white dark:bg-neutral-900 border text-left rounded-xl p-3.5 flex flex-col justify-between transition-all cursor-pointer ${
-            activeStatusFilter === 'kept'
-              ? 'border-blue-500 ring-2 ring-blue-500/10'
-              : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300'
-          }`}
-        >
-          <div className="flex items-center justify-between text-blue-600 dark:text-blue-400">
-            <span className="text-xs font-medium">Manter Seguindo</span>
-            <Shield className="w-4 h-4" />
-          </div>
-          <div className="mt-2 text-2xl font-bold tracking-tight text-blue-600 dark:text-blue-400 tabular-nums">
-            {keptCount}
-          </div>
-          <div className="mt-1 text-[11px] text-neutral-400 dark:text-neutral-500">
-            Protegidos / Favoritos
-          </div>
-        </button>
       </div>
 
       {/* Progress Bar & Review Summary */}
-      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4">
+      <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-neutral-900 dark:text-white">
-              Progresso da Revisão
-            </span>
-            <span className="text-xs text-neutral-500 dark:text-neutral-400">
-              · {reviewedCount} de {totalNonFollowers} contas analisadas
-            </span>
-          </div>
+          <span className="text-xs font-semibold text-neutral-900 dark:text-white">
+            Progresso da Revisão
+          </span>
           <span className="text-xs font-bold text-neutral-900 dark:text-white tabular-nums">
             {progressPercent}% concluído
           </span>

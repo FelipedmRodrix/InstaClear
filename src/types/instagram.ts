@@ -36,8 +36,12 @@ export interface ReviewSession {
   startedAt: number;
   completedThisSession: number;
   hourlySafetyLimit: number; // default 15-20
-  dailySafetyLimit: number; // default 100
+  dailySafetyLimit: number; // default 100-150
   lastActionTimestamp?: number;
+  unfollowsThisHour: number;
+  unfollowsToday: number;
+  hourBucketStart: number; // epoch ms of the start of the current hour bucket
+  dayBucket: string; // YYYY-MM-DD string for the current day
 }
 
 export interface ActionHistoryEntry {
