@@ -70,16 +70,20 @@ export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, ha
       const followersFiles: File[] = [];
 
       for (const file of fileList) {
-        const name = file.name.toLowerCase();
-        // Check content if filename is generic
+        const base = file.name.split('/').pop()?.split('\\').pop()?.toLowerCase() || '';
         if (
-          name.endsWith('/following.html') ||
-          name.endsWith('following.html') ||
-          name.endsWith('following.json') ||
-          name.includes('seguindo')
+          /^(following|seguindo)(_\d+)?\.(json|html?)$/i.test(base) ||
+          base === 'following.html' ||
+          base === 'following.json' ||
+          base === 'seguindo.html' ||
+          base === 'seguindo.json'
         ) {
           followingFile = file;
-        } else if (name.includes('follower') || name.includes('seguidor')) {
+        } else if (
+          /^(followers?|seguidores?)(_\d+)?\.(json|html?)$/i.test(base) ||
+          base.startsWith('followers') ||
+          base.startsWith('seguidores')
+        ) {
           followersFiles.push(file);
         } else if (fileList.length === 1) {
           // Single file: check content

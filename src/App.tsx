@@ -25,7 +25,6 @@ import { ExtensionGuideModal } from './components/ExtensionGuideModal';
 import { HistoryModal } from './components/HistoryModal';
 import { ClearDataDialog } from './components/ClearDataDialog';
 import { ChevronLeft, ChevronRight, UploadCloud, ShieldAlert, Sparkles, Download, Layers } from 'lucide-react';
-import { getUserUploadedDataset } from './services/realUserData';
 import { normalizeSession } from './utils/safetyLimits';
 
 const ITEMS_PER_PAGE = 20;
@@ -34,16 +33,10 @@ export default function App() {
   // Persistence state
   const [accounts, setAccounts] = useState<InstagramAccount[]>(() => {
     const saved = loadSavedAccounts();
-    if (saved && saved.length > 0) return saved;
-    // Default to the user's parsed Instagram export dataset (408 accounts not following back)
-    const { accounts: realAccounts } = getUserUploadedDataset();
-    return realAccounts;
+    return (saved && saved.length > 0) ? saved : [];
   });
   const [report, setReport] = useState<ImportAuditReport | null>(() => {
-    const saved = loadSavedReport();
-    if (saved) return saved;
-    const { report: realReport } = getUserUploadedDataset();
-    return realReport;
+    return loadSavedReport() || null;
   });
   const [history, setHistory] = useState<ActionHistoryEntry[]>(() => loadActionHistory());
   const [session, setSession] = useState<ReviewSession>(() => loadReviewSession());
