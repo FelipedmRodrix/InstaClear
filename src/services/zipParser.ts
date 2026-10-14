@@ -37,7 +37,6 @@ export function normalizeUsername(input: string): string {
       const match = cleaned.match(/instagram\.com\/([a-zA-Z0-9._]+)/i);
       if (match && match[1]) {
         if (match[1].toLowerCase() === '_u') {
-          // If match[1] was _u, check if there is another segment
           const nextSeg = cleaned.match(/instagram\.com\/_u\/([a-zA-Z0-9._]+)/i);
           cleaned = nextSeg && nextSeg[1] ? nextSeg[1] : '';
         } else if (!RESERVED_WORDS.has(match[1].toLowerCase())) {
@@ -60,7 +59,6 @@ export function normalizeUsername(input: string): string {
 
 /**
  * Parses dates commonly formatted in Instagram HTML exports
- * e.g. "out 12, 2026 5:20 da tarde/noite", "jul 07, 2025 5:49 da manhã"
  */
 function parseInstagramDate(text: string): number | undefined {
   if (!text) return undefined;
@@ -131,6 +129,31 @@ function extractAccountsFromJson(data: any): RawAccountItem[] {
     return results;
   }
 
+  if (data.relationships_followers && Array.isArray(data.relationships_followers)) {
+    for (const item of data.relationships_followers) {
+      if (item && item.string_list_data && Array.isArray(item.string_list_data)) {
+        for (const sld of item.string_list_data) {
+          const val = sld.value || item.title;
+          const norm = normalizeUsername(val);
+          if (norm) {
+            results.push({
+              username: norm,
+              displayName: item.title || norm,
+              href: sld.href || `https://www.instagram.com/${norm}/`,
+              timestamp: sld.timestamp ? sld.timestamp * 1000 : undefined,
+            });
+          }
+        }
+      } else if (item && item.title) {
+        const norm = normalizeUsername(item.title);
+        if (norm) {
+          results.push({ username: norm, displayName: item.title });
+        }
+      }
+    }
+    return results;
+  }
+
   if (data.relationships_following && Array.isArray(data.relationships_following)) {
     for (const item of data.relationships_following) {
       if (item && item.string_list_data && Array.isArray(item.string_list_data)) {
@@ -163,7 +186,6 @@ function extractAccountsFromJson(data: any): RawAccountItem[] {
     return extractAccountsFromJson(data.followers);
   }
 
-  // Recursive fallback for nested structures
   function searchDeep(node: any) {
     if (!node || typeof node !== 'object') return;
     if (Array.isArray(node)) {
@@ -172,18 +194,29 @@ function extractAccountsFromJson(data: any): RawAccountItem[] {
     }
     if (node.string_list_data && Array.isArray(node.string_list_data)) {
       for (const sld of node.string_list_data) {
-        const val = sld.value || node.title;
+        const val = sld.value || sld.href || node.title;
         const norm = normalizeUsername(val);
         if (norm) {
           results.push({
             username: norm,
-            displayName: node.title || norm,
+            displayName: node.title && !node.title.includes('http') ? node.title : norm,
             href: sld.href || `https://www.instagram.com/${norm}/`,
             timestamp: sld.timestamp ? sld.timestamp * 1000 : undefined,
           });
         }
       }
     }
+    const directVal = node.username || node.value || node.href || (typeof node.title === 'string' && !node.title.includes(' ') ? node.title : '');
+    const directNorm = normalizeUsername(directVal);
+    if (directNorm) {
+      results.push({
+        username: directNorm,
+        displayName: node.title && !node.title.includes('http') ? node.title : directNorm,
+        href: node.href || `https://www.instagram.com/${directNorm}/`,
+        timestamp: node.timestamp ? node.timestamp * 1000 : undefined,
+      });
+    }
+
     for (const key of Object.keys(node)) {
       if (typeof node[key] === 'object') {
         searchDeep(node[key]);
@@ -197,7 +230,6 @@ function extractAccountsFromJson(data: any): RawAccountItem[] {
 
 /**
  * Robust extraction of accounts from Instagram HTML export documents
- * Handles following.html (with <h2> username, /_u/ links), followers_1.html, and profile tables
  */
 export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
   const results: RawAccountItem[] = [];
@@ -205,7 +237,6 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, 'text/html');
 
-    // 1. Process structured card containers (div.pam, div._a6-g, div._a6-p)
     const blocks = doc.querySelectorAll('div.pam, div._a6-g, div._a6-p');
     if (blocks.length > 0) {
       blocks.forEach((block) => {
@@ -214,7 +245,6 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
         let href = '';
         let timestamp: number | undefined;
 
-        // Try extracting username from <h2> (standard in following.html)
         const h2 = block.querySelector('h2');
         if (h2 && h2.textContent?.trim()) {
           const rawH2 = h2.textContent.trim();
@@ -225,7 +255,6 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
           }
         }
 
-        // Try extracting from Instagram link
         const link = block.querySelector('a[href*="instagram.com"]');
         if (link) {
           href = link.getAttribute('href') || '';
@@ -235,7 +264,6 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
           }
         }
 
-        // Check for table structure: <tr><td class="_a6_q">Nome de usuário</td><td>username</td></tr>
         const cells = block.querySelectorAll('td');
         for (let i = 0; i < cells.length; i++) {
           const label = cells[i].textContent?.trim().toLowerCase() || '';
@@ -251,7 +279,6 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
           }
         }
 
-        // Extract date timestamp
         const blockText = block.textContent || '';
         timestamp = parseInstagramDate(blockText);
 
@@ -266,7 +293,6 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
       });
     }
 
-    // 2. Direct fallback: If structured blocks yielded few or no results, extract all <a> links
     if (results.length === 0) {
       const links = doc.querySelectorAll('a[href*="instagram.com"]');
       links.forEach((link) => {
@@ -274,7 +300,6 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
         const text = link.textContent?.trim() || '';
         const norm = normalizeUsername(text) || normalizeUsername(href);
         if (norm && !RESERVED_WORDS.has(norm)) {
-          // Check sibling or parent for date
           const parentText = link.closest('div')?.textContent || '';
           const timestamp = parseInstagramDate(parentText);
           results.push({
@@ -290,7 +315,6 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
     console.error('Error parsing HTML export content:', err);
   }
 
-  // Deduplicate within the single file
   const uniqueMap = new Map<string, RawAccountItem>();
   for (const item of results) {
     const norm = normalizeUsername(item.username);
@@ -308,7 +332,7 @@ export interface ParseResult {
 }
 
 /**
- * Parse an Instagram ZIP archive
+ * Parse an Instagram ZIP archive with strict file filtering
  */
 export async function parseInstagramZip(
   file: File,
@@ -335,43 +359,38 @@ export async function parseInstagramZip(
 
   const zipFiles = Object.keys(zipContent.files);
 
-  // Identify following files: following.html, following.json, etc. (ignore hashtags)
-  const followingFileCandidates = zipFiles.filter((path) => {
+  const dataFiles = zipFiles.filter((path) => {
     const lower = path.toLowerCase();
     if (zipContent.files[path].dir) return false;
-    if (lower.includes('hashtag') || lower.includes('recently_unfollowed') || lower.includes('pending')) return false;
-    return (
-      lower.endsWith('/following.json') ||
-      lower.endsWith('following.json') ||
-      lower.endsWith('/following.html') ||
-      lower.endsWith('following.html') ||
-      lower.includes('seguindo')
-    );
+    if (lower.includes('hashtag') || lower.includes('recently_unfollowed') || lower.includes('pending') || lower.includes('blocked') || lower.includes('restricted')) {
+      return false;
+    }
+    return lower.endsWith('.json') || lower.endsWith('.html');
   });
 
-  // Identify followers files: followers_1.html, followers_1.json, etc.
-  const followerFileCandidates = zipFiles.filter((path) => {
+  let followingFileCandidates = dataFiles.filter((path) => path.toLowerCase().includes('following'));
+  let followerFileCandidates = dataFiles.filter((path) => {
     const lower = path.toLowerCase();
-    if (zipContent.files[path].dir) return false;
-    return (
-      (lower.includes('follower') || lower.includes('seguidor')) &&
-      (lower.endsWith('.json') || lower.endsWith('.html'))
-    );
+    return lower.includes('follower') || lower.includes('followers') || lower.includes('seguidor');
   });
 
-  if (followingFileCandidates.length === 0) {
-    warnings.push('Nenhum arquivo de contas seguidas ("following.html" ou "following.json") foi localizado automaticamente no ZIP.');
+  if (followingFileCandidates.length === 0 && dataFiles.length > 0) {
+    followingFileCandidates.push(dataFiles[0]);
+  }
+  if (followerFileCandidates.length === 0 && dataFiles.length > 1) {
+    const remaining = dataFiles.filter((p) => !followingFileCandidates.includes(p));
+    if (remaining.length > 0) {
+      followerFileCandidates.push(remaining[0]);
+    } else {
+      followerFileCandidates.push(dataFiles[1]);
+    }
   }
 
-  if (followerFileCandidates.length === 0) {
-    warnings.push('Nenhum arquivo de seguidores ("followers_*.html" ou "followers_*.json") foi localizado automaticamente no ZIP.');
-  }
-
-  // Parse Following files
   let processed = 0;
   const totalFilesToProcess = followingFileCandidates.length + followerFileCandidates.length;
 
   for (const path of followingFileCandidates) {
+    if (filesScanned.includes(path)) continue; // avoid duplicates
     filesScanned.push(path);
     try {
       const content = await zipContent.files[path].async('string');
@@ -388,8 +407,8 @@ export async function parseInstagramZip(
     onProgress?.(30 + Math.floor((processed / (totalFilesToProcess || 1)) * 40), `Processando ${path}...`);
   }
 
-  // Parse Followers files (handles followers_1.html, followers_2.html, etc.)
   for (const path of followerFileCandidates) {
+    if (filesScanned.includes(path)) continue; // avoid duplicates
     filesScanned.push(path);
     try {
       const content = await zipContent.files[path].async('string');
@@ -472,7 +491,7 @@ export async function parseIndividualFiles(
 }
 
 /**
- * Parses raw text or concatenated files containing following and/or followers HTML or JSON
+ * Parses raw text or concatenated files
  */
 export function parseCombinedTextOrHtml(rawText: string, fileName = 'Texto Colado'): ParseResult {
   const filesScanned: string[] = ['Texto/Conteúdo Direto'];
@@ -481,8 +500,6 @@ export function parseCombinedTextOrHtml(rawText: string, fileName = 'Texto Colad
   let followingItems: RawAccountItem[] = [];
   let followersItems: RawAccountItem[] = [];
 
-  // Check if content has both sections by header or file marker
-  // e.g. "following.html" marker or "<title>Seguindo</title>"
   const hasFollowingSection =
     rawText.includes('following.html') ||
     rawText.includes('<title>Seguindo</title>') ||
@@ -495,7 +512,6 @@ export function parseCombinedTextOrHtml(rawText: string, fileName = 'Texto Colad
     rawText.includes('u_0_2_ts');
 
   if (hasFollowingSection && hasFollowersSection) {
-    // Split by followers marker
     let followingPart = '';
     let followersPart = '';
 
@@ -516,7 +532,6 @@ export function parseCombinedTextOrHtml(rawText: string, fileName = 'Texto Colad
         followersPart = rawText.slice(splitIndex);
       }
     } else {
-      // Split by title
       const titleFollowers = rawText.indexOf('<title>Seguidores</title>');
       const titleFollowing = rawText.indexOf('<title>Seguindo</title>');
       if (titleFollowers !== -1 && titleFollowing !== -1) {
@@ -547,7 +562,6 @@ export function parseCombinedTextOrHtml(rawText: string, fileName = 'Texto Colad
     followersItems = extractAccountsFromHtml(rawText);
     filesScanned.push('Lista de Seguidores (followers_1.html)');
   } else {
-    // Try JSON first, then HTML
     try {
       const json = JSON.parse(rawText);
       const extracted = extractAccountsFromJson(json);
@@ -633,22 +647,19 @@ function processExtractedLists(params: {
       }
     }
   } else if (followingMap.size > 0 && followersSet.size === 0) {
-    // Only following file was provided
     warnings.push(
-      `Foram identificadas ${followingMap.size} contas que você segue. Como o arquivo de seguidores não foi incluído, todas as contas seguidas estão sendo exibidas. Adicione o arquivo de seguidores para filtrar automaticamente quem não te segue de volta.`
+      `O arquivo de seguidores não foi detectado. Todas as contas seguidas estão sendo exibidas. Adicione o arquivo de seguidores para filtrar automaticamente quem não te segue de volta.`
     );
     for (const account of followingMap.values()) {
       accounts.push(account);
     }
     notFollowingBackCount = accounts.length;
   } else if (followingMap.size === 0 && followersSet.size > 0) {
-    // Only followers were provided
     errors.push(
       `Identificamos ${followersSet.size} seguidores, mas nenhuma lista de contas seguidas ("following.html" ou "following.json"). Por favor, adicione o arquivo de quem você segue para realizar a comparação.`
     );
   }
 
-  // Calculate followers who user doesn't follow back
   let followersNotFollowedBackCount = 0;
   for (const follower of followersSet) {
     if (!followingMap.has(follower)) {

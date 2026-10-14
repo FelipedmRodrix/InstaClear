@@ -2,8 +2,8 @@ import React from 'react';
 import { Moon, Sun, Download, Trash2, ShieldCheck, History } from 'lucide-react';
 
 interface HeaderProps {
-  currentTab: 'dashboard' | 'review' | 'import' | 'extension';
-  onSelectTab: (tab: 'dashboard' | 'review' | 'import' | 'extension') => void;
+  currentTab: 'dashboard' | 'import';
+  onSelectTab: (tab: 'dashboard' | 'import') => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   onExportData: () => void;
@@ -67,16 +67,6 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               Importar Exportação
-            </button>
-            <button
-              onClick={() => onSelectTab('extension')}
-              className={`hover:text-neutral-900 dark:hover:text-white transition-colors whitespace-nowrap shrink-0 pb-0.5 border-b-2 cursor-pointer ${
-                currentTab === 'extension'
-                  ? 'text-neutral-900 dark:text-white border-rose-500 font-semibold'
-                  : 'border-transparent'
-              }`}
-            >
-              Extensão & Segurança
             </button>
           </nav>
 

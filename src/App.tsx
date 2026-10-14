@@ -65,7 +65,7 @@ export default function App() {
   }, [isDarkMode]);
 
   // View state
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'review' | 'import' | 'extension'>('dashboard');
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'import'>('dashboard');
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -481,7 +481,23 @@ export default function App() {
 
   // Import handler
   const handleImportComplete = (newAccounts: InstagramAccount[], newReport: ImportAuditReport) => {
-    setAccounts(newAccounts);
+    const existingMap = new Map<string, InstagramAccount>();
+    accounts.forEach((acc) => existingMap.set(acc.id, acc));
+
+    const mergedAccounts = newAccounts.map((newAcc) => {
+      const existing = existingMap.get(newAcc.id);
+      if (existing) {
+        return {
+          ...newAcc,
+          status: existing.status,
+          statusUpdatedAt: existing.statusUpdatedAt,
+          isWhitelisted: existing.isWhitelisted,
+        };
+      }
+      return newAcc;
+    });
+
+    setAccounts(mergedAccounts);
     setReport(newReport);
     setSelectedIds(new Set());
     setCurrentPage(1);
@@ -504,11 +520,7 @@ export default function App() {
       <Header
         currentTab={currentTab}
         onSelectTab={(tab) => {
-          if (tab === 'review') {
-            handleStartReview();
-          } else {
-            setCurrentTab(tab);
-          }
+          setCurrentTab(tab);
         }}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
@@ -697,13 +709,6 @@ export default function App() {
               hasExistingData={accounts.length > 0}
               onClearComplete={handleClearImport}
             />
-          </div>
-        )}
-
-        {/* Tab 3: Extension & Safety Guide */}
-        {currentTab === 'extension' && (
-          <div className="py-6">
-            <ExtensionGuideModal />
           </div>
         )}
       </main>
