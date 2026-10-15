@@ -81,6 +81,12 @@ export const ImportReportModal: React.FC<ImportReportModalProps> = ({
               <span>Entradas duplicadas ignoradas com segurança:</span>
               <span className="font-semibold tabular-nums text-neutral-900 dark:text-white">{report.duplicateCount}</span>
             </div>
+            {report.deactivatedCount && report.deactivatedCount > 0 ? (
+              <div className="flex justify-between text-rose-600 dark:text-rose-400 font-medium">
+                <span>Contas potencialmente desativadas/excluídas:</span>
+                <span className="font-semibold tabular-nums">{report.deactivatedCount}</span>
+              </div>
+            ) : null}
           </div>
 
           {/* Files scanned */}

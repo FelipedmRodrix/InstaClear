@@ -24,8 +24,10 @@ import { ImportReportModal } from './components/ImportReportModal';
 import { ExtensionGuideModal } from './components/ExtensionGuideModal';
 import { HistoryModal } from './components/HistoryModal';
 import { ClearDataDialog } from './components/ClearDataDialog';
+import { DeactivatedAccountsModal } from './components/DeactivatedAccountsModal';
 import { ChevronLeft, ChevronRight, UploadCloud, ShieldAlert, Sparkles, Download, Layers } from 'lucide-react';
 import { normalizeSession } from './utils/safetyLimits';
+import { isSuspectedDeactivated } from './services/zipParser';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -78,6 +80,7 @@ export default function App() {
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
   const [isClearDialogOpen, setIsClearDialogOpen] = useState<boolean>(false);
+  const [isDeactivatedModalOpen, setIsDeactivatedModalOpen] = useState<boolean>(false);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
 
   // Safety limit dialog state
@@ -127,12 +130,20 @@ export default function App() {
       completed: 0,
       kept: 0,
       ignored: 0,
+      deactivated: 0,
       error: 0,
     };
     for (const acc of accounts) {
       counts[acc.status] = (counts[acc.status] || 0) + 1;
     }
     return counts;
+  }, [accounts]);
+
+  // Number of suspected or confirmed deactivated accounts
+  const suspectedDeactivatedCount = useMemo(() => {
+    return accounts.filter(
+      (a) => a.isDeactivated || a.status === 'deactivated' || isSuspectedDeactivated(a)
+    ).length;
   }, [accounts]);
 
   // Filtered and sorted accounts
@@ -245,17 +256,52 @@ export default function App() {
     });
   };
 
-  const handleBatchAction = (action: 'keep' | 'ignore' | 'reset_pending' | 'complete') => {
+  const handleRemoveAccounts = useCallback((accountIds: string[], reason = 'Removida da lista') => {
+    if (accountIds.length === 0) return;
+    const idSet = new Set(accountIds);
+    setAccounts((prev) => prev.filter((acc) => !idSet.has(acc.id)));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      accountIds.forEach((id) => next.delete(id));
+      return next;
+    });
+
+    const entries: ActionHistoryEntry[] = accountIds.map((id) => ({
+      id: `${Date.now()}_${id}`,
+      timestamp: Date.now(),
+      username: id,
+      previousStatus: 'pending',
+      newStatus: 'deactivated',
+      actionDescription: reason,
+    }));
+    setHistory((prev) => [...entries, ...prev].slice(0, 100));
+  }, []);
+
+  const handleBatchAction = (action: 'keep' | 'ignore' | 'reset_pending' | 'complete' | 'deactivated' | 'remove') => {
     if (selectedIds.size === 0) return;
 
+    if (action === 'remove') {
+      handleRemoveAccounts(Array.from(selectedIds), 'Removidas em lote da lista');
+      return;
+    }
+
     const targetStatus: ReviewStatus =
-      action === 'keep' ? 'kept' : action === 'ignore' ? 'ignored' : action === 'complete' ? 'completed' : 'pending';
+      action === 'keep'
+        ? 'kept'
+        : action === 'ignore'
+        ? 'ignored'
+        : action === 'complete'
+        ? 'completed'
+        : action === 'deactivated'
+        ? 'deactivated'
+        : 'pending';
 
     const updated = accounts.map((acc) => {
       if (selectedIds.has(acc.id)) {
         return {
           ...acc,
           status: targetStatus,
+          isDeactivated: action === 'deactivated',
           statusUpdatedAt: Date.now(),
           isWhitelisted: action === 'keep',
         };
@@ -316,6 +362,19 @@ export default function App() {
       }
     },
     []
+  );
+
+  const handleToggleDeactivated = useCallback(
+    (account: InstagramAccount) => {
+      const isNowDeactivated = account.status === 'deactivated';
+      const newStatus: ReviewStatus = isNowDeactivated ? 'pending' : 'deactivated';
+      updateAccountStatus(
+        account.id,
+        newStatus,
+        isNowDeactivated ? 'Retornada para pendente' : 'Marcada como conta desativada/excluída'
+      );
+    },
+    [updateAccountStatus]
   );
 
   // Assisted Review Flow
@@ -603,6 +662,11 @@ export default function App() {
                   onOpenSelectedTabs={handleOpenSelectedPageTabs}
                   onBatchAction={handleBatchAction}
                   statusCounts={statusCounts}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={(p) => setCurrentPage(p)}
+                  onOpenDeactivatedModal={() => setIsDeactivatedModalOpen(true)}
+                  suspectedDeactivatedCount={suspectedDeactivatedCount}
                 />
 
                 {/* Account list / grid */}
@@ -632,6 +696,8 @@ export default function App() {
                           onQuickToggleKeep={handleQuickToggleKeep}
                           onToggleStatus={handleToggleStatus}
                           onOpenInstagramTab={(url) => window.open(url, '_blank', 'noopener,noreferrer')}
+                          onToggleDeactivated={handleToggleDeactivated}
+                          onRemoveAccount={(id) => handleRemoveAccounts([id], 'Removida da lista por estar desativada')}
                         />
                     ))}
                   </div>
@@ -644,6 +710,8 @@ export default function App() {
                     onQuickToggleKeep={handleQuickToggleKeep}
                     onToggleStatus={handleToggleStatus}
                     onOpenInstagramTab={(url) => window.open(url, '_blank', 'noopener,noreferrer')}
+                    onToggleDeactivated={handleToggleDeactivated}
+                    onRemoveAccount={(id) => handleRemoveAccounts([id], 'Removida da lista por estar desativada')}
                   />
                 )}
 
@@ -761,6 +829,23 @@ export default function App() {
         isOpen={isClearDialogOpen}
         onClose={() => setIsClearDialogOpen(false)}
         onConfirm={handleClearAllData}
+      />
+
+      {/* Deactivated Accounts Management Modal */}
+      <DeactivatedAccountsModal
+        isOpen={isDeactivatedModalOpen}
+        onClose={() => setIsDeactivatedModalOpen(false)}
+        accounts={accounts}
+        onRemoveAccounts={handleRemoveAccounts}
+        onMarkDeactivated={(ids) => {
+          setAccounts((prev) =>
+            prev.map((a) =>
+              ids.includes(a.id)
+                ? { ...a, status: 'deactivated', isDeactivated: true, statusUpdatedAt: Date.now() }
+                : a
+            )
+          );
+        }}
       />
     </div>
   );

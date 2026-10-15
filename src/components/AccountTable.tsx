@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, Shield, CheckCircle2, Clock, EyeOff, AlertTriangle, ArrowRight } from 'lucide-react';
+import { ExternalLink, Shield, CheckCircle2, Clock, EyeOff, AlertTriangle, ArrowRight, UserX, Trash2 } from 'lucide-react';
 import { InstagramAccount, ReviewStatus } from '../types/instagram';
 
 interface AccountTableProps {
@@ -10,6 +10,8 @@ interface AccountTableProps {
   onQuickToggleKeep: (account: InstagramAccount) => void;
   onToggleStatus: (account: InstagramAccount) => void;
   onOpenInstagramTab: (url: string) => void;
+  onToggleDeactivated?: (account: InstagramAccount) => void;
+  onRemoveAccount?: (id: string) => void;
 }
 
 export const AccountTable: React.FC<AccountTableProps> = ({
@@ -20,9 +22,17 @@ export const AccountTable: React.FC<AccountTableProps> = ({
   onQuickToggleKeep,
   onToggleStatus,
   onOpenInstagramTab,
+  onToggleDeactivated,
+  onRemoveAccount,
 }) => {
   const renderStatusBadge = (status: ReviewStatus) => {
     switch (status) {
+      case 'deactivated':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
+            <UserX className="w-3.5 h-3.5" /> Desativada
+          </span>
+        );
       case 'completed':
         return (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
@@ -167,6 +177,30 @@ export const AccountTable: React.FC<AccountTableProps> = ({
                               <span>Pendente</span>
                             </>
                           )}
+                        </button>
+                      )}
+
+                      {onToggleDeactivated && (
+                        <button
+                          onClick={() => onToggleDeactivated(account)}
+                          title={account.status === 'deactivated' ? 'Retornar a pendente' : 'Marcar como desativada'}
+                          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                            account.status === 'deactivated'
+                              ? 'text-rose-600 bg-rose-50 dark:bg-rose-950/40'
+                              : 'text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400'
+                          }`}
+                        >
+                          <UserX className="w-4 h-4" />
+                        </button>
+                      )}
+
+                      {onRemoveAccount && (
+                        <button
+                          onClick={() => onRemoveAccount(account.id)}
+                          title="Remover definitivamente da lista"
+                          className="p-1.5 text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>

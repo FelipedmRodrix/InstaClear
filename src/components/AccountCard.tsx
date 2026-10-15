@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, CheckCircle2, Clock, Shield, CameraOff } from 'lucide-react';
+import { ExternalLink, CheckCircle2, Clock, Shield, CameraOff, UserX, Trash2 } from 'lucide-react';
 import { InstagramAccount, ReviewStatus } from '../types/instagram';
 
 interface AccountCardProps {
@@ -9,6 +9,8 @@ interface AccountCardProps {
   onToggleStatus: (account: InstagramAccount) => void;
   onQuickToggleKeep: (account: InstagramAccount) => void;
   onOpenInstagramTab: (url: string) => void;
+  onToggleDeactivated?: (account: InstagramAccount) => void;
+  onRemoveAccount?: (id: string) => void;
 }
 
 export const AccountCard: React.FC<AccountCardProps> = ({
@@ -18,6 +20,8 @@ export const AccountCard: React.FC<AccountCardProps> = ({
   onToggleStatus,
   onQuickToggleKeep,
   onOpenInstagramTab,
+  onToggleDeactivated,
+  onRemoveAccount,
 }) => {
   const isExcluded = account.status === 'completed';
 
@@ -45,7 +49,11 @@ export const AccountCard: React.FC<AccountCardProps> = ({
           <span className="text-[11px] text-neutral-400 dark:text-neutral-500">Selecionar</span>
         </label>
 
-        {account.status === 'kept' ? (
+        {account.status === 'deactivated' || account.isDeactivated ? (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+            <UserX className="w-3 h-3" /> Desativada
+          </span>
+        ) : account.status === 'kept' ? (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
             <Shield className="w-3 h-3" /> Mantido (VIP)
           </span>
@@ -129,18 +137,18 @@ export const AccountCard: React.FC<AccountCardProps> = ({
 
       {/* Bottom Actions: Open link and Direct "Pendente / Verificado" button */}
       <div className="mt-5 pt-3 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => onQuickToggleKeep(account)}
             title={account.status === 'kept' ? 'Remover da proteção' : 'Manter seguindo (Não deixar de seguir)'}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer ${
+            className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer ${
               account.status === 'kept'
                 ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
                 : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
             }`}
           >
             <Shield className="w-3.5 h-3.5" />
-            <span>{account.status === 'kept' ? 'Mantido' : 'Manter'}</span>
+            <span className="hidden sm:inline">{account.status === 'kept' ? 'Mantido' : 'Manter'}</span>
           </button>
 
           <button
@@ -150,6 +158,30 @@ export const AccountCard: React.FC<AccountCardProps> = ({
           >
             <ExternalLink className="w-4 h-4" />
           </button>
+
+          {onToggleDeactivated && (
+            <button
+              onClick={() => onToggleDeactivated(account)}
+              title={account.status === 'deactivated' ? 'Retornar a Pendente' : 'Marcar como Conta Desativada'}
+              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                account.status === 'deactivated'
+                  ? 'text-rose-600 bg-rose-100 dark:bg-rose-950/60'
+                  : 'text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-neutral-800'
+              }`}
+            >
+              <UserX className="w-4 h-4" />
+            </button>
+          )}
+
+          {onRemoveAccount && (
+            <button
+              onClick={() => onRemoveAccount(account.id)}
+              title="Remover definitivamente da lista"
+              className="p-1.5 text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* SOLICITADO: No lugar de revisar, troque apenas por um botão Pendente ou Verificado */}

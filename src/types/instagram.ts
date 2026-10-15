@@ -2,7 +2,7 @@
  * Types and interfaces for InstaClean - Instagram Assisted Unfollow Application
  */
 
-export type ReviewStatus = 'pending' | 'in_review' | 'completed' | 'kept' | 'ignored' | 'error';
+export type ReviewStatus = 'pending' | 'in_review' | 'completed' | 'kept' | 'ignored' | 'deactivated' | 'error';
 
 export interface InstagramAccount {
   id: string; // normalized username
@@ -16,6 +16,8 @@ export interface InstagramAccount {
   statusUpdatedAt?: number;
   notes?: string;
   isWhitelisted?: boolean; // Protect from unfollow
+  isDeactivated?: boolean; // Suspected or confirmed deactivated/deleted account
+  deactivatedReason?: string;
 }
 
 export interface ImportAuditReport {
@@ -27,6 +29,7 @@ export interface ImportAuditReport {
   mutualCount: number;
   followersNotFollowedBackCount: number;
   duplicateCount: number;
+  deactivatedCount?: number;
   filesScanned: string[];
   warnings: string[];
   errors: string[];

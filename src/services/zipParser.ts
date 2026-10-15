@@ -803,6 +803,54 @@ export function parseCombinedTextOrHtml(rawText: string, fileName = 'Texto Colad
 }
 
 /**
+ * Detects whether an account is likely deactivated or deleted based on Instagram export placeholder patterns
+ */
+export function isSuspectedDeactivated(account: { username?: string; displayName?: string; profileUrl?: string }): boolean {
+  const user = (account.username || '').toLowerCase().trim();
+  const display = (account.displayName || '').toLowerCase().trim();
+  const url = (account.profileUrl || '').toLowerCase().trim();
+
+  const placeholderExact = [
+    'instagram_user',
+    'instagram user',
+    'usuariodoinstagram',
+    'usuario_do_instagram',
+    'usuário do instagram',
+    'usuario do instagram',
+    'deleted_user',
+    'deleted account',
+    'conta desativada',
+    'conta_desativada',
+    'instagrammer',
+    'user_not_found',
+    'undefined',
+    'null',
+    'deleted'
+  ];
+
+  const simplifiedUser = user.replace(/[^a-z0-9]/g, '');
+  if (placeholderExact.some(p => user === p || simplifiedUser === p.replace(/[^a-z0-9]/g, ''))) {
+    return true;
+  }
+
+  if (
+    display.includes('usuário do instagram') ||
+    display.includes('usuario do instagram') ||
+    display.includes('instagram user') ||
+    display.includes('conta desativada') ||
+    display.includes('página não disponível')
+  ) {
+    return true;
+  }
+
+  if (url === 'https://www.instagram.com/' || url === 'https://www.instagram.com/_u/' || url === 'https://www.instagram.com/_u') {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Normalizes, deduplicates, and compares following vs followers
  * Exclusively calculates all metrics from the real extracted data
  */
@@ -852,14 +900,23 @@ function processExtractedLists(params: {
       ? cleanUsername
       : rawDisplay;
 
+    const profileUrl = item.href || `https://www.instagram.com/${norm}/`;
+    const suspected = isSuspectedDeactivated({
+      username: cleanUsername,
+      displayName: cleanDisplay,
+      profileUrl,
+    });
+
     const account: InstagramAccount = {
       id: norm,
       username: cleanUsername,
       displayName: cleanDisplay,
-      profileUrl: item.href || `https://www.instagram.com/${norm}/`,
+      profileUrl,
       followedAt: item.timestamp,
-      status: 'pending',
+      status: suspected ? 'deactivated' : 'pending',
       isWhitelisted: false,
+      isDeactivated: suspected,
+      deactivatedReason: suspected ? 'Identificado como conta desativada/excluída no arquivo' : undefined,
     };
 
     followingMap.set(norm, account);
@@ -901,6 +958,13 @@ function processExtractedLists(params: {
     errors.push('Nenhuma conta foi identificada no arquivo enviado. Verifique se o arquivo corresponde à exportação oficial do Instagram.');
   }
 
+  let deactivatedCount = 0;
+  for (const acc of accounts) {
+    if (acc.isDeactivated || acc.status === 'deactivated') {
+      deactivatedCount++;
+    }
+  }
+
   const report: ImportAuditReport = {
     fileName,
     importedAt: Date.now(),
@@ -910,6 +974,7 @@ function processExtractedLists(params: {
     mutualCount,
     followersNotFollowedBackCount,
     duplicateCount,
+    deactivatedCount,
     filesScanned,
     warnings,
     errors,

@@ -11,7 +11,11 @@ import {
   ExternalLink,
   CheckCircle2,
   XCircle,
-  CopyCheck
+  CopyCheck,
+  ChevronLeft,
+  ChevronRight,
+  UserX,
+  Trash2
 } from 'lucide-react';
 import { FilterOptions, ReviewStatus, ViewMode } from '../types/instagram';
 
@@ -27,8 +31,13 @@ interface FilterToolbarProps {
   selectedPageCount?: number;
   onDeselectAll: () => void;
   onOpenSelectedTabs?: () => void;
-  onBatchAction: (action: 'complete' | 'reset_pending' | 'keep' | 'ignore') => void;
+  onBatchAction: (action: 'complete' | 'reset_pending' | 'keep' | 'ignore' | 'deactivated' | 'remove') => void;
   statusCounts: Record<ReviewStatus | 'all', number>;
+  currentPage?: number;
+  totalPages?: number;
+  onPageChange?: (page: number) => void;
+  onOpenDeactivatedModal?: () => void;
+  suspectedDeactivatedCount?: number;
 }
 
 export const FilterToolbar: React.FC<FilterToolbarProps> = ({
@@ -45,6 +54,11 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
   onOpenSelectedTabs,
   onBatchAction,
   statusCounts,
+  currentPage,
+  totalPages,
+  onPageChange,
+  onOpenDeactivatedModal,
+  suspectedDeactivatedCount,
 }) => {
   return (
     <div className="space-y-3">
@@ -176,10 +190,36 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
           >
             Ignorados ({statusCounts.ignored})
           </button>
+
+          <button
+            onClick={() => onFilterChange({ status: 'deactivated' })}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+              filters.status === 'deactivated'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'bg-white dark:bg-neutral-900 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/80 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+            }`}
+          >
+            <UserX className="w-3.5 h-3.5" />
+            <span>Desativadas ({statusCounts.deactivated || 0})</span>
+          </button>
+
+          {onOpenDeactivatedModal && (
+            <button
+              onClick={onOpenDeactivatedModal}
+              title="Abrir ferramenta para identificar e limpar contas desativadas ou que não existem mais"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shadow-2xs"
+            >
+              <UserX className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+              <span>Limpar Desativadas</span>
+              {(suspectedDeactivatedCount || 0) > 0 && (
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Selection Tools & Page Select */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col sm:items-end items-start gap-1.5">
           {/* Select all on current page button */}
           <button
             onClick={isPageSelected ? onDeselectAll : onSelectAllPage}
@@ -193,6 +233,41 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
             {isPageSelected ? <CheckSquare className="w-3.5 h-3.5 text-rose-600" /> : <CopyCheck className="w-3.5 h-3.5 text-neutral-400" />}
             <span>{isPageSelected ? 'Desmarcar todos' : `Selecionar todos (${currentPageCount})`}</span>
           </button>
+
+          {/* Atalho de trocar de página logo abaixo de selecionar todos */}
+          {totalPages && totalPages > 1 && onPageChange && (
+            <div className="flex items-center gap-1 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg px-2 py-0.5 shadow-xs">
+              <button
+                onClick={() => onPageChange(Math.max(1, (currentPage || 1) - 1))}
+                disabled={(currentPage || 1) <= 1}
+                className={`p-1 rounded-md text-xs transition-colors ${
+                  (currentPage || 1) <= 1
+                    ? 'opacity-30 cursor-not-allowed text-neutral-400'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 cursor-pointer'
+                }`}
+                title="Página anterior"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <span className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 px-1.5 tabular-nums whitespace-nowrap">
+                Pág. {currentPage || 1} de {totalPages}
+              </span>
+
+              <button
+                onClick={() => onPageChange(Math.min(totalPages, (currentPage || 1) + 1))}
+                disabled={(currentPage || 1) >= totalPages}
+                className={`p-1 rounded-md text-xs transition-colors ${
+                  (currentPage || 1) >= totalPages
+                    ? 'opacity-30 cursor-not-allowed text-neutral-400'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 cursor-pointer'
+                }`}
+                title="Próxima página"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -246,6 +321,57 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
             >
               <Shield className="w-3 h-3" /> Manter
             </button>
+
+            <button
+              onClick={() => onBatchAction('deactivated')}
+              title="Marcar selecionados como Conta Desativada"
+              className="px-2.5 py-1.5 text-xs font-semibold bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-800 dark:text-rose-200 rounded-xl border border-rose-200 dark:border-rose-800 flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <UserX className="w-3.5 h-3.5" />
+              <span>Desativada</span>
+            </button>
+
+            <button
+              onClick={() => onBatchAction('remove')}
+              title="Remover permanentemente os selecionados da lista"
+              className="px-2.5 py-1.5 text-xs font-semibold bg-white dark:bg-neutral-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl border border-rose-300 dark:border-rose-800 flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Remover da Lista</span>
+            </button>
+
+            {/* Atalho de navegação rápida de página também na barra de selecionados */}
+            {totalPages && totalPages > 1 && onPageChange && (
+              <div className="flex items-center gap-1 bg-white/90 dark:bg-neutral-900/90 border border-neutral-300 dark:border-neutral-700 rounded-xl px-2 py-1 shadow-2xs">
+                <button
+                  onClick={() => onPageChange(Math.max(1, (currentPage || 1) - 1))}
+                  disabled={(currentPage || 1) <= 1}
+                  className={`p-1 rounded text-xs transition-colors ${
+                    (currentPage || 1) <= 1
+                      ? 'opacity-30 cursor-not-allowed text-neutral-400'
+                      : 'hover:bg-neutral-200/60 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 cursor-pointer'
+                  }`}
+                  title="Página anterior"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 px-1 tabular-nums whitespace-nowrap">
+                  Pág. {currentPage || 1}/{totalPages}
+                </span>
+                <button
+                  onClick={() => onPageChange(Math.min(totalPages, (currentPage || 1) + 1))}
+                  disabled={(currentPage || 1) >= totalPages}
+                  className={`p-1 rounded text-xs transition-colors ${
+                    (currentPage || 1) >= totalPages
+                      ? 'opacity-30 cursor-not-allowed text-neutral-400'
+                      : 'hover:bg-neutral-200/60 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 cursor-pointer'
+                  }`}
+                  title="Próxima página"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             <button
               onClick={onDeselectAll}
