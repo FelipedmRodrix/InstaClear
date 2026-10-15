@@ -102,7 +102,11 @@ export function normalizeUsername(input: string): string {
 export function extractHandleFromUrl(url: string): string {
   if (!url) return '';
   try {
-    const clean = url.trim().split('?')[0].split('#')[0].replace(/\/+$/, '');
+    let clean = url.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
+    if (clean.includes('%')) {
+      try { clean = decodeURIComponent(clean); } catch {}
+    }
+    clean = clean.split('?')[0].split('#')[0].replace(/\/+$/, '');
     
     // Pattern 1: /_u/username
     const uMatch = clean.match(/instagram\.com\/_u\/([a-zA-Z0-9._]+)/i);
@@ -127,6 +131,13 @@ export function extractHandleFromUrl(url: string): string {
         return seg;
       }
     }
+
+    // Pattern 3: direct relative path /_u/username or /username
+    const relMatch = clean.match(/^\/?(?:_u\/)?([a-zA-Z0-9._]{1,30})$/i);
+    if (relMatch && relMatch[1]) {
+      const seg = relMatch[1].toLowerCase();
+      if (!RESERVED_WORDS.has(seg)) return seg;
+    }
   } catch {
     // fallback
   }
@@ -134,11 +145,20 @@ export function extractHandleFromUrl(url: string): string {
 }
 
 /**
- * Normalizes an Instagram username, properly extracting from URLs or raw handles
+ * Normalizes an Instagram username, properly extracting from URLs, relative paths or raw handles
  */
 export function normalizeUsername(input: string): string {
   if (!input) return '';
-  let str = input.trim();
+  let str = input.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '').trim();
+
+  // URL decoding if encoded
+  if (str.includes('%')) {
+    try {
+      str = decodeURIComponent(str);
+    } catch {
+      // ignore
+    }
+  }
 
   // If input contains instagram.com, extract handle directly from URL
   if (str.includes('instagram.com')) {
@@ -146,9 +166,16 @@ export function normalizeUsername(input: string): string {
     if (fromUrl) return fromUrl;
   }
 
-  // Handle _u/username directly if passed without domain
+  // Handle leading slashes and _u/ prefixes:
+  // e.g. "/_u/username", "_u/username", "/username", "/username/"
+  while (str.startsWith('/')) {
+    str = str.slice(1);
+  }
   if (str.startsWith('_u/')) {
     str = str.slice(3);
+  }
+  while (str.startsWith('/')) {
+    str = str.slice(1);
   }
 
   // Strip leading @, trailing slashes, query parameters, hashes
@@ -333,6 +360,7 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
       const doc = parser.parseFromString(htmlContent, 'text/html');
 
 <<<<<<< HEAD
+<<<<<<< HEAD
       // Instagram wraps each entry in a top-level div with class "pam" or "_a6-g"
       let blocks = doc.querySelectorAll('div.pam, div._a6-g');
       if (blocks.length === 0) {
@@ -461,6 +489,10 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
 =======
       // In all Instagram HTML exports, each profile is an anchor tag with instagram.com link
       const links = doc.querySelectorAll('a[href*="instagram.com"]');
+=======
+      // Check all anchor tags: supports instagram.com, _u/, relative links /user, and plain text handles
+      const links = doc.querySelectorAll('a');
+>>>>>>> c15073101cc4fa4d3ae112f47d3fad2735f655fc
       links.forEach((link) => {
         const href = link.getAttribute('href') || '';
         const rawText = link.textContent?.trim() || '';
@@ -468,8 +500,13 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
         // Priority 1: Extract handle from href URL (the canonical source of truth)
         let username = extractHandleFromUrl(href);
 
-        // Priority 2: If URL did not have it, try link text only if it's a valid handle pattern
-        if (!username) {
+        // Priority 2: Try normalizeUsername on href directly if it had relative path (e.g. /_u/username)
+        if (!username && href) {
+          username = normalizeUsername(href);
+        }
+
+        // Priority 3: If URL did not have it, try link text only if it's a valid handle pattern
+        if (!username && rawText) {
           username = normalizeUsername(rawText);
         }
 
@@ -499,14 +536,17 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
 
   // 2. Fallback to regex if DOMParser produced 0 items
   if (results.length === 0) {
-    const linkRegex = /<a\s+[^>]*href=["']([^"']*instagram\.com[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    const linkRegex = /<a\s+[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
     let match: RegExpExecArray | null;
     while ((match = linkRegex.exec(htmlContent)) !== null) {
       const href = match[1];
       const linkText = match[2].replace(/<[^>]+>/g, '').trim();
 
       let username = extractHandleFromUrl(href);
-      if (!username) {
+      if (!username && href) {
+        username = normalizeUsername(href);
+      }
+      if (!username && linkText) {
         username = normalizeUsername(linkText);
       }
       if (!username || RESERVED_WORDS.has(username)) continue;
@@ -556,11 +596,15 @@ function isIgnoredFile(path: string): boolean {
   return IGNORED_PATH_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-function isFollowingFile(path: string): boolean {
-  if (isIgnoredFile(path)) return false;
+/**
+ * Classifies an export file path strictly as 'following', 'followers', or null
+ */
+export function classifyFile(path: string): 'following' | 'followers' | null {
+  if (isIgnoredFile(path)) return null;
   const base = getBasename(path);
-  if (!base.endsWith('.json') && !base.endsWith('.html') && !base.endsWith('.htm')) return false;
+  if (!base.endsWith('.json') && !base.endsWith('.html') && !base.endsWith('.htm')) return null;
 
+<<<<<<< HEAD
 <<<<<<< HEAD
   // Strict match: following.html, following.json, following_1.json, seguindo.html, etc.
   if (/^(following|seguindo)(_\d+)?\.(json|html?)$/i.test(base)) {
@@ -592,6 +636,50 @@ function isFollowersFile(path: string): boolean {
   }
   return base.startsWith('followers') || base.startsWith('seguidores');
 >>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
+=======
+  // Strict matching for Following files:
+  // Examples: following.html, following.json, following_1.html, seguindo.html, seguidos.html
+  // Must NOT match "dismissed_suggested_users", "recently_followed", etc.
+  if (
+    /^(following|seguindo|seguidos)(?:[_\-\s]\d+)?\.(json|html?)$/i.test(base) ||
+    base === 'following.html' ||
+    base === 'following.json' ||
+    base === 'seguindo.html' ||
+    base === 'seguindo.json'
+  ) {
+    return 'following';
+  }
+
+  // Strict matching for Followers files:
+  // Examples: followers.html, followers_1.html, followers_1.json, seguidores.html, seguidores_1.html
+  if (
+    /^(followers?|seguidores?)(?:[_\-\s]\d+)?\.(json|html?)$/i.test(base) ||
+    base === 'followers_1.html' ||
+    base === 'followers_1.json' ||
+    base === 'followers.html' ||
+    base === 'followers.json' ||
+    base === 'seguidores_1.html' ||
+    base === 'seguidores.html'
+  ) {
+    return 'followers';
+  }
+
+  // Check parent directory ONLY if the parent folder itself is strictly 'following' or 'followers'
+  // (NEVER match combined folders like 'followers_and_following'!)
+  const norm = path.replace(/\\/g, '/').toLowerCase();
+  const parts = norm.split('/');
+  if (parts.length > 1) {
+    const parentDir = parts[parts.length - 2];
+    if (parentDir === 'following' || parentDir === 'seguindo' || parentDir === 'seguidos') {
+      return 'following';
+    }
+    if (parentDir === 'followers' || parentDir === 'seguidores') {
+      return 'followers';
+    }
+  }
+
+  return null;
+>>>>>>> c15073101cc4fa4d3ae112f47d3fad2735f655fc
 }
 
 /**
@@ -622,35 +710,22 @@ export async function parseInstagramZip(
 
   const zipFiles = Object.keys(zipContent.files).filter((path) => !zipContent.files[path].dir);
 
-  // Identify Following files
-  let followingFileCandidates = zipFiles.filter(isFollowingFile);
+  // Identify Following and Followers files
+  const followingFileCandidates: string[] = [];
+  const followerFileCandidates: string[] = [];
 
-  // Identify Followers files
-  let followerFileCandidates = zipFiles.filter(isFollowersFile);
-
-  // Fallback if no exact match found: search files where basename contains following or follower
-  if (followingFileCandidates.length === 0) {
-    followingFileCandidates = zipFiles.filter((p) => {
-      if (isIgnoredFile(p)) return false;
-      const base = getBasename(p);
-      return (base.includes('following') || base.includes('seguindo')) && (base.endsWith('.json') || base.endsWith('.html'));
-    });
-  }
-
-  if (followerFileCandidates.length === 0) {
-    followerFileCandidates = zipFiles.filter((p) => {
-      if (isIgnoredFile(p)) return false;
-      const base = getBasename(p);
-      return (base.includes('follower') || base.includes('seguidor')) && (base.endsWith('.json') || base.endsWith('.html'));
-    });
+  for (const p of zipFiles) {
+    const type = classifyFile(p);
+    if (type === 'following') followingFileCandidates.push(p);
+    else if (type === 'followers') followerFileCandidates.push(p);
   }
 
   if (followingFileCandidates.length === 0) {
-    warnings.push('Nenhum arquivo de contas seguidas ("following.html" ou "following.json") foi localizado automaticamente no ZIP.');
+    errors.push('Nenhum arquivo de contas seguidas ("following.html" ou "following.json") foi localizado no arquivo ZIP.');
   }
 
   if (followerFileCandidates.length === 0) {
-    warnings.push('Nenhum arquivo de seguidores ("followers_*.html" ou "followers_*.json") foi localizado automaticamente no ZIP.');
+    errors.push('Nenhum arquivo de seguidores ("followers_*.html" ou "followers_*.json") foi localizado no arquivo ZIP.');
   }
 
   let processed = 0;
@@ -928,16 +1003,12 @@ function processExtractedLists(params: {
       }
     }
   } else if (followingMap.size > 0 && followersSet.size === 0) {
-    warnings.push(
-      'O arquivo de seguidores não foi detectado. Todas as contas seguidas estão sendo exibidas. Adicione o arquivo de seguidores para filtrar automaticamente quem não te segue de volta.'
+    errors.push(
+      'Atenção: A lista de seguidores não foi encontrada no arquivo enviado. Para que o sistema compare e mostre quem NÃO te segue de volta, é obrigatório incluir tanto o arquivo de contas seguidas ("following") quanto o arquivo de seguidores ("followers_1") ou o arquivo .ZIP completo baixado do Instagram.'
     );
-    for (const account of followingMap.values()) {
-      accounts.push(account);
-    }
-    notFollowingBackCount = accounts.length;
   } else if (followingMap.size === 0 && followersSet.size > 0) {
     errors.push(
-      `Identificamos ${followersSet.size} seguidores, mas nenhuma lista de contas seguidas ("following.html" ou "following.json"). Por favor, adicione o arquivo de quem você segue para realizar a comparação.`
+      `Foram identificados ${followersSet.size} seguidores, mas nenhuma lista de contas seguidas ("following"). Por favor, adicione o arquivo de quem você segue para realizar a comparação.`
     );
   }
 

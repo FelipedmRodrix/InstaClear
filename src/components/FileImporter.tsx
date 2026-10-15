@@ -11,11 +11,14 @@ import {
   Trash2,
   RefreshCw
 } from 'lucide-react';
-import { parseInstagramZip, parseIndividualFiles, parseCombinedTextOrHtml } from '../services/zipParser';
+import { parseInstagramZip, parseIndividualFiles, parseCombinedTextOrHtml, classifyFile } from '../services/zipParser';
 import { ImportAuditReport, InstagramAccount } from '../types/instagram';
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 import { getUserUploadedDataset } from '../services/realUserData';
+=======
+>>>>>>> c15073101cc4fa4d3ae112f47d3fad2735f655fc
 import { getSampleDataset } from '../services/sampleData';
 >>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
 
@@ -75,58 +78,55 @@ export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, ha
       const followersFiles: File[] = [];
 
       for (const file of fileList) {
-        const base = file.name.split('/').pop()?.split('\\').pop()?.toLowerCase() || '';
-        if (
-          /^(following|seguindo)(_\d+)?\.(json|html?)$/i.test(base) ||
-          base === 'following.html' ||
-          base === 'following.json' ||
-          base === 'seguindo.html' ||
-          base === 'seguindo.json'
-        ) {
+        const type = classifyFile(file.name);
+        if (type === 'following') {
           followingFile = file;
-        } else if (
-          /^(followers?|seguidores?)(_\d+)?\.(json|html?)$/i.test(base) ||
-          base.startsWith('followers') ||
-          base.startsWith('seguidores')
-        ) {
+        } else if (type === 'followers') {
           followersFiles.push(file);
         } else if (fileList.length === 1) {
-          // Single file: check content
+          // If a single combined file was provided
           const content = await file.text();
-          if (content.includes('following.html') || content.includes('<title>Seguindo</title>')) {
+          if (content.includes('following') && (content.includes('follower') || content.includes('seguidor'))) {
             const parsed = parseCombinedTextOrHtml(content, file.name);
-            onImportComplete(parsed.accounts, parsed.report);
-            setIsLoading(false);
-            return;
+            if (parsed.accounts.length > 0) {
+              onImportComplete(parsed.accounts, parsed.report);
+              setIsLoading(false);
+              return;
+            }
           }
         }
       }
 
-      if (!followingFile && followersFiles.length === 0) {
-        // If single file, try parsing it as combined or following
-        if (fileList.length === 1) {
-          const content = await fileList[0].text();
-          const parsed = parseCombinedTextOrHtml(content, fileList[0].name);
-          if (parsed.accounts.length > 0) {
-            onImportComplete(parsed.accounts, parsed.report);
-            setIsLoading(false);
-            return;
-          }
+      if (followingFile && followersFiles.length > 0) {
+        const result = await parseIndividualFiles(followingFile, followersFiles);
+        if (result.accounts.length === 0 && result.report.errors.length > 0) {
+          setErrorMsg(result.report.errors.join(' '));
+        } else {
+          onImportComplete(result.accounts, result.report);
         }
+        setIsLoading(false);
+        return;
+      }
 
+      if (followingFile && followersFiles.length === 0) {
         setErrorMsg(
-          'Não localizamos os arquivos "following.html" (contas seguidas) nem "followers_1.html" (seguidores). Certifique-se de selecionar esses arquivos ou o arquivo .ZIP completo.'
+          `Você enviou o arquivo de contas seguidas (${followingFile.name}), mas falta a lista de seguidores deste perfil (ex: followers_1.html / followers.json). Para comparar e descobrir quem não te segue de volta, envie os dois arquivos juntos ou o arquivo .ZIP completo baixado do Instagram.`
         );
         setIsLoading(false);
         return;
       }
 
-      const result = await parseIndividualFiles(followingFile, followersFiles);
-      if (result.accounts.length === 0 && result.report.errors.length > 0) {
-        setErrorMsg(result.report.errors.join(' '));
-      } else {
-        onImportComplete(result.accounts, result.report);
+      if (!followingFile && followersFiles.length > 0) {
+        setErrorMsg(
+          'Você enviou o arquivo de seguidores, mas falta o arquivo de contas seguidas (following.html / following.json). Envie os dois arquivos juntos ou o arquivo .ZIP completo.'
+        );
+        setIsLoading(false);
+        return;
       }
+
+      setErrorMsg(
+        'Não localizamos os arquivos "following.html" (contas seguidas) e "followers_1.html" (seguidores). Certifique-se de selecionar esses arquivos ou o arquivo .ZIP completo do Instagram.'
+      );
     } catch (err: any) {
       setErrorMsg(err.message || 'Erro ao processar os arquivos.');
     } finally {
@@ -180,13 +180,11 @@ export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, ha
   };
 
   const handleDualCompare = async () => {
-    if (!selectedFollowingFile && !selectedFollowersFile) {
-      setErrorMsg('Selecione pelo menos um dos arquivos para processar.');
+    if (!selectedFollowingFile || !selectedFollowersFile) {
+      setErrorMsg('Selecione ambos os arquivos (1. quem você segue e 2. seus seguidores) para realizar o cruzamento.');
       return;
     }
-    await handleFiles(
-      [selectedFollowingFile, selectedFollowersFile].filter(Boolean) as File[]
-    );
+    await handleFiles([selectedFollowingFile, selectedFollowersFile]);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -362,24 +360,12 @@ export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, ha
                   <button
                     type="button"
                     onClick={() => {
-                      const data = getUserUploadedDataset();
-                      onImportComplete(data.accounts, data.report);
-                    }}
-                    className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-semibold text-xs rounded-xl transition-all flex items-center gap-2 cursor-pointer"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5 text-rose-500" />
-                    Carregar Meus Dados Salvos ({getUserUploadedDataset().accounts.length} contas)
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
                       const data = getSampleDataset();
                       onImportComplete(data.accounts, data.report);
                     }}
                     className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-400 font-medium text-xs rounded-xl transition-all cursor-pointer"
                   >
-                    Carregar Amostra Demo
+                    Carregar Amostra Demo (Teste)
                   </button>
                 </div>
 >>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
@@ -480,7 +466,7 @@ export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, ha
           <div className="text-center pt-2">
             <button
               onClick={handleDualCompare}
-              disabled={isLoading || (!selectedFollowingFile && !selectedFollowersFile)}
+              disabled={isLoading || !selectedFollowingFile || !selectedFollowersFile}
               className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
             >
               {isLoading ? 'Processando...' : 'Comparar Listas e Encontrar Quem Não Te Segue'}

@@ -27,8 +27,11 @@ import { ClearDataDialog } from './components/ClearDataDialog';
 import { ChevronLeft, ChevronRight, UploadCloud, ShieldAlert, Sparkles, Download, Layers } from 'lucide-react';
 import { normalizeSession } from './utils/safetyLimits';
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 import { getUserUploadedDataset } from './services/realUserData';
+=======
+>>>>>>> c15073101cc4fa4d3ae112f47d3fad2735f655fc
 import { getSampleDataset } from './services/sampleData';
 >>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
 
@@ -488,7 +491,7 @@ export default function App() {
     setCurrentTab('import');
   };
 
-  // Import handler
+  // Import handler - goes straight to the profiles list on the dashboard
   const handleImportComplete = (newAccounts: InstagramAccount[], newReport: ImportAuditReport) => {
 <<<<<<< HEAD
     const existingMap = new Map<string, InstagramAccount>();
@@ -515,7 +518,7 @@ export default function App() {
     setReport(newReport);
     setSelectedIds(new Set());
     setCurrentPage(1);
-    setIsReportModalOpen(true);
+    setIsReportModalOpen(false);
     setCurrentTab('dashboard');
   };
 
