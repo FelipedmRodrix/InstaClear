@@ -15,13 +15,21 @@ interface RawAccountItem {
 const RESERVED_WORDS = new Set([
   '_u', 'u', 'p', 'reel', 'reels', 'stories', 'explore', 'direct', 'accounts',
   'about', 'legal', 'privacy', 'help', 'settings', 'following', 'followers',
+<<<<<<< HEAD
   'home', 'login', 'signup', 'null', 'undefined'
+=======
+  'home', 'login', 'signup', 'null', 'undefined', 'instagram', 'meta', 'facebook',
+  'seguindo', 'seguidores', 'conexoes', 'connections', 'profile', 'profiles'
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
 ]);
 
 const IGNORED_PATH_KEYWORDS = [
   'hashtag',
   'recently_unfollowed',
+<<<<<<< HEAD
   'pending',
+=======
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
   'recent_follow_requests',
   'follow_requests',
   'blocked',
@@ -46,6 +54,7 @@ const MONTH_MAP: Record<string, number> = {
 };
 
 /**
+<<<<<<< HEAD
  * Normalizes an Instagram username, properly extracting from URLs like
  * https://www.instagram.com/_u/username or https://www.instagram.com/username
  */
@@ -87,6 +96,72 @@ export function normalizeUsername(input: string): string {
     return '';
   }
   return lower;
+=======
+ * Extracts canonical Instagram username from URL (handles /_u/user, /user/, params, etc.)
+ */
+export function extractHandleFromUrl(url: string): string {
+  if (!url) return '';
+  try {
+    const clean = url.trim().split('?')[0].split('#')[0].replace(/\/+$/, '');
+    
+    // Pattern 1: /_u/username
+    const uMatch = clean.match(/instagram\.com\/_u\/([a-zA-Z0-9._]+)/i);
+    if (uMatch && uMatch[1]) {
+      const handle = uMatch[1].toLowerCase();
+      if (!RESERVED_WORDS.has(handle) && /^[a-zA-Z0-9._]{1,30}$/.test(handle)) {
+        return handle;
+      }
+    }
+
+    // Pattern 2: /username
+    const regMatch = clean.match(/instagram\.com\/([a-zA-Z0-9._]+)/i);
+    if (regMatch && regMatch[1]) {
+      const seg = regMatch[1].toLowerCase();
+      if (seg === '_u') {
+        const nextSeg = clean.match(/instagram\.com\/_u\/([a-zA-Z0-9._]+)/i);
+        if (nextSeg && nextSeg[1]) {
+          const h = nextSeg[1].toLowerCase();
+          if (!RESERVED_WORDS.has(h) && /^[a-zA-Z0-9._]{1,30}$/.test(h)) return h;
+        }
+      } else if (!RESERVED_WORDS.has(seg) && /^[a-zA-Z0-9._]{1,30}$/.test(seg)) {
+        return seg;
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return '';
+}
+
+/**
+ * Normalizes an Instagram username, properly extracting from URLs or raw handles
+ */
+export function normalizeUsername(input: string): string {
+  if (!input) return '';
+  let str = input.trim();
+
+  // If input contains instagram.com, extract handle directly from URL
+  if (str.includes('instagram.com')) {
+    const fromUrl = extractHandleFromUrl(str);
+    if (fromUrl) return fromUrl;
+  }
+
+  // Handle _u/username directly if passed without domain
+  if (str.startsWith('_u/')) {
+    str = str.slice(3);
+  }
+
+  // Strip leading @, trailing slashes, query parameters, hashes
+  str = str.replace(/^@/, '').split('/')[0].split('?')[0].split('#')[0].trim();
+  const lower = str.toLowerCase();
+
+  // Instagram usernames: max 30 chars, alphanumeric + dots + underscores only (NO spaces, NO accents)
+  if (/^[a-zA-Z0-9._]{1,30}$/.test(lower) && !RESERVED_WORDS.has(lower)) {
+    return lower;
+  }
+
+  return '';
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
 }
 
 /**
@@ -257,6 +332,7 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
       const parser = new DOMParser();
       const doc = parser.parseFromString(htmlContent, 'text/html');
 
+<<<<<<< HEAD
       // Instagram wraps each entry in a top-level div with class "pam" or "_a6-g"
       let blocks = doc.querySelectorAll('div.pam, div._a6-g');
       if (blocks.length === 0) {
@@ -382,6 +458,70 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
           timestamp,
         });
       }
+=======
+      // In all Instagram HTML exports, each profile is an anchor tag with instagram.com link
+      const links = doc.querySelectorAll('a[href*="instagram.com"]');
+      links.forEach((link) => {
+        const href = link.getAttribute('href') || '';
+        const rawText = link.textContent?.trim() || '';
+
+        // Priority 1: Extract handle from href URL (the canonical source of truth)
+        let username = extractHandleFromUrl(href);
+
+        // Priority 2: If URL did not have it, try link text only if it's a valid handle pattern
+        if (!username) {
+          username = normalizeUsername(rawText);
+        }
+
+        if (username && !RESERVED_WORDS.has(username)) {
+          // Parent container for timestamp
+          const container = link.closest('div.pam, div._a6-g, div._a6-h, div._a6-p, li, tr, td') || link.parentElement;
+          const blockText = container?.textContent || '';
+          const timestamp = parseInstagramDate(blockText);
+
+          // Display name: use link text if it's a real name and not a raw URL
+          const displayName = rawText && !rawText.startsWith('http') && !rawText.includes('instagram.com')
+            ? rawText
+            : username;
+
+          results.push({
+            username,
+            displayName,
+            href: href.startsWith('http') ? href : `https://www.instagram.com/${username}/`,
+            timestamp,
+          });
+        }
+      });
+    } catch (err) {
+      console.warn('DOMParser failed, falling back to regex parser:', err);
+    }
+  }
+
+  // 2. Fallback to regex if DOMParser produced 0 items
+  if (results.length === 0) {
+    const linkRegex = /<a\s+[^>]*href=["']([^"']*instagram\.com[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = linkRegex.exec(htmlContent)) !== null) {
+      const href = match[1];
+      const linkText = match[2].replace(/<[^>]+>/g, '').trim();
+
+      let username = extractHandleFromUrl(href);
+      if (!username) {
+        username = normalizeUsername(linkText);
+      }
+      if (!username || RESERVED_WORDS.has(username)) continue;
+
+      const afterSnippet = htmlContent.slice(match.index + match[0].length, match.index + match[0].length + 300);
+      const timestamp = parseInstagramDate(afterSnippet);
+      const displayName = linkText && !linkText.startsWith('http') && !linkText.includes('instagram.com') ? linkText : username;
+
+      results.push({
+        username,
+        displayName,
+        href: href.startsWith('http') ? href : `https://www.instagram.com/${username}/`,
+        timestamp,
+      });
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
     }
   }
 
@@ -403,7 +543,12 @@ export interface ParseResult {
 }
 
 function getBasename(filePath: string): string {
+<<<<<<< HEAD
   return filePath.split('/').pop()?.toLowerCase() || '';
+=======
+  const normalized = filePath.replace(/\\/g, '/');
+  return normalized.split('/').pop()?.toLowerCase() || '';
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
 }
 
 function isIgnoredFile(path: string): boolean {
@@ -416,11 +561,18 @@ function isFollowingFile(path: string): boolean {
   const base = getBasename(path);
   if (!base.endsWith('.json') && !base.endsWith('.html') && !base.endsWith('.htm')) return false;
 
+<<<<<<< HEAD
   // Strict match: following.html, following.json, following_1.json, seguindo.html, etc.
   if (/^(following|seguindo)(_\d+)?\.(json|html?)$/i.test(base)) {
     return true;
   }
   return false;
+=======
+  if (/^(following|seguindo)([_\-\s]\d+)?\.(json|html?)$/i.test(base)) {
+    return true;
+  }
+  return base.startsWith('following') || base.startsWith('seguindo');
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
 }
 
 function isFollowersFile(path: string): boolean {
@@ -428,11 +580,18 @@ function isFollowersFile(path: string): boolean {
   const base = getBasename(path);
   if (!base.endsWith('.json') && !base.endsWith('.html') && !base.endsWith('.htm')) return false;
 
+<<<<<<< HEAD
   // Strict match: followers_1.html, followers.json, seguidores_1.html, etc.
   if (/^(followers?|seguidores?)(_\d+)?\.(json|html?)$/i.test(base)) {
     return true;
   }
   return false;
+=======
+  if (/^(followers?|seguidores?)([_\-\s]\d+)?\.(json|html?)$/i.test(base)) {
+    return true;
+  }
+  return base.startsWith('followers') || base.startsWith('seguidores');
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
 }
 
 /**

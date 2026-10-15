@@ -26,10 +26,16 @@ import { HistoryModal } from './components/HistoryModal';
 import { ClearDataDialog } from './components/ClearDataDialog';
 import { ChevronLeft, ChevronRight, UploadCloud, ShieldAlert, Sparkles, Download, Layers } from 'lucide-react';
 import { normalizeSession } from './utils/safetyLimits';
+<<<<<<< HEAD
+=======
+import { getUserUploadedDataset } from './services/realUserData';
+import { getSampleDataset } from './services/sampleData';
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
 
 const ITEMS_PER_PAGE = 20;
 
 export default function App() {
+<<<<<<< HEAD
   // Persistence state
   const [accounts, setAccounts] = useState<InstagramAccount[]>(() => {
     const saved = loadSavedAccounts();
@@ -38,6 +44,11 @@ export default function App() {
   const [report, setReport] = useState<ImportAuditReport | null>(() => {
     return loadSavedReport() || null;
   });
+=======
+  // Persistence state - starts empty by default, requesting user to upload their export
+  const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
+  const [report, setReport] = useState<ImportAuditReport | null>(null);
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
   const [history, setHistory] = useState<ActionHistoryEntry[]>(() => loadActionHistory());
   const [session, setSession] = useState<ReviewSession>(() => loadReviewSession());
 
@@ -57,8 +68,13 @@ export default function App() {
     localStorage.setItem('instaclean_darkmode_v1', String(isDarkMode));
   }, [isDarkMode]);
 
+<<<<<<< HEAD
   // View state
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'import'>('dashboard');
+=======
+  // View state: opens directly on the import view to prompt user for file upload
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'import'>('import');
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -474,6 +490,7 @@ export default function App() {
 
   // Import handler
   const handleImportComplete = (newAccounts: InstagramAccount[], newReport: ImportAuditReport) => {
+<<<<<<< HEAD
     const existingMap = new Map<string, InstagramAccount>();
     accounts.forEach((acc) => existingMap.set(acc.id, acc));
 
@@ -491,6 +508,10 @@ export default function App() {
     });
 
     setAccounts(mergedAccounts);
+=======
+    // Directly replace accounts with the new imported non-followers list
+    setAccounts(newAccounts);
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
     setReport(newReport);
     setSelectedIds(new Set());
     setCurrentPage(1);
@@ -743,7 +764,11 @@ export default function App() {
         onClose={() => setIsReportModalOpen(false)}
         onProceedToReview={() => {
           setIsReportModalOpen(false);
+<<<<<<< HEAD
           handleStartReview();
+=======
+          setCurrentTab('dashboard');
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
         }}
       />
 

@@ -13,6 +13,11 @@ import {
 } from 'lucide-react';
 import { parseInstagramZip, parseIndividualFiles, parseCombinedTextOrHtml } from '../services/zipParser';
 import { ImportAuditReport, InstagramAccount } from '../types/instagram';
+<<<<<<< HEAD
+=======
+import { getUserUploadedDataset } from '../services/realUserData';
+import { getSampleDataset } from '../services/sampleData';
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
 
 interface FileImporterProps {
   onImportComplete: (accounts: InstagramAccount[], report: ImportAuditReport) => void;
@@ -216,6 +221,25 @@ export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, ha
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+<<<<<<< HEAD
+=======
+      {/* Onboarding Call to Action when starting without data */}
+      {!hasExistingData && (
+        <div className="text-center space-y-2 py-2 max-w-xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 text-xs font-semibold">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+            Envio de arquivo necessário
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
+            Descubra quem não te segue de volta
+          </h2>
+          <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+            Faça o upload do seu arquivo de dados oficial do Instagram (.ZIP ou arquivos HTML) para iniciar a análise no seu navegador.
+          </p>
+        </div>
+      )}
+
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
       {/* Tabs */}
       <div className="flex items-center justify-center gap-2 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl max-w-md mx-auto text-xs font-semibold">
         <button
@@ -315,6 +339,7 @@ export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, ha
                 </p>
               </div>
             ) : (
+<<<<<<< HEAD
               <div className="mt-6">
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -324,6 +349,40 @@ export const FileImporter: React.FC<FileImporterProps> = ({ onImportComplete, ha
                   Selecionar Arquivo (.ZIP / .HTML)
                 </button>
               </div>
+=======
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-semibold text-xs rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Selecionar Arquivo (.ZIP / .HTML)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const data = getUserUploadedDataset();
+                      onImportComplete(data.accounts, data.report);
+                    }}
+                    className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-semibold text-xs rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-rose-500" />
+                    Carregar Meus Dados Salvos ({getUserUploadedDataset().accounts.length} contas)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const data = getSampleDataset();
+                      onImportComplete(data.accounts, data.report);
+                    }}
+                    className="px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-400 font-medium text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    Carregar Amostra Demo
+                  </button>
+                </div>
+>>>>>>> af2a2437533fbb348f9b765381c858fc81383e2b
             )}
           </div>
         </div>
