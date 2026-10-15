@@ -15,13 +15,13 @@ interface RawAccountItem {
 const RESERVED_WORDS = new Set([
   '_u', 'u', 'p', 'reel', 'reels', 'stories', 'explore', 'direct', 'accounts',
   'about', 'legal', 'privacy', 'help', 'settings', 'following', 'followers',
-  'home', 'login', 'signup', 'null', 'undefined'
+  'home', 'login', 'signup', 'null', 'undefined', 'instagram', 'meta', 'facebook',
+  'seguindo', 'seguidores', 'conexoes', 'connections', 'profile', 'profiles'
 ]);
 
 const IGNORED_PATH_KEYWORDS = [
   'hashtag',
   'recently_unfollowed',
-  'pending',
   'recent_follow_requests',
   'follow_requests',
   'blocked',
@@ -46,47 +46,70 @@ const MONTH_MAP: Record<string, number> = {
 };
 
 /**
- * Normalizes an Instagram username, properly extracting from URLs like
- * https://www.instagram.com/_u/username or https://www.instagram.com/username
+ * Extracts canonical Instagram username from URL (handles /_u/user, /user/, params, etc.)
+ */
+export function extractHandleFromUrl(url: string): string {
+  if (!url) return '';
+  try {
+    const clean = url.trim().split('?')[0].split('#')[0].replace(/\/+$/, '');
+    
+    // Pattern 1: /_u/username
+    const uMatch = clean.match(/instagram\.com\/_u\/([a-zA-Z0-9._]+)/i);
+    if (uMatch && uMatch[1]) {
+      const handle = uMatch[1].toLowerCase();
+      if (!RESERVED_WORDS.has(handle) && /^[a-zA-Z0-9._]{1,30}$/.test(handle)) {
+        return handle;
+      }
+    }
+
+    // Pattern 2: /username
+    const regMatch = clean.match(/instagram\.com\/([a-zA-Z0-9._]+)/i);
+    if (regMatch && regMatch[1]) {
+      const seg = regMatch[1].toLowerCase();
+      if (seg === '_u') {
+        const nextSeg = clean.match(/instagram\.com\/_u\/([a-zA-Z0-9._]+)/i);
+        if (nextSeg && nextSeg[1]) {
+          const h = nextSeg[1].toLowerCase();
+          if (!RESERVED_WORDS.has(h) && /^[a-zA-Z0-9._]{1,30}$/.test(h)) return h;
+        }
+      } else if (!RESERVED_WORDS.has(seg) && /^[a-zA-Z0-9._]{1,30}$/.test(seg)) {
+        return seg;
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return '';
+}
+
+/**
+ * Normalizes an Instagram username, properly extracting from URLs or raw handles
  */
 export function normalizeUsername(input: string): string {
   if (!input) return '';
-  let cleaned = input.trim();
+  let str = input.trim();
 
-  // If input contains instagram.com
-  if (cleaned.includes('instagram.com')) {
-    // 1. Check for /_u/<username>
-    const uMatch = cleaned.match(/instagram\.com\/_u\/([a-zA-Z0-9._]+)/i);
-    if (uMatch && uMatch[1] && !RESERVED_WORDS.has(uMatch[1].toLowerCase())) {
-      cleaned = uMatch[1];
-    } else {
-      // 2. Check for regular /<username>
-      const match = cleaned.match(/instagram\.com\/([a-zA-Z0-9._]+)/i);
-      if (match && match[1]) {
-        if (match[1].toLowerCase() === '_u') {
-          const nextSeg = cleaned.match(/instagram\.com\/_u\/([a-zA-Z0-9._]+)/i);
-          cleaned = nextSeg && nextSeg[1] ? nextSeg[1] : '';
-        } else if (!RESERVED_WORDS.has(match[1].toLowerCase())) {
-          cleaned = match[1];
-        } else {
-          cleaned = '';
-        }
-      }
-    }
+  // If input contains instagram.com, extract handle directly from URL
+  if (str.includes('instagram.com')) {
+    const fromUrl = extractHandleFromUrl(str);
+    if (fromUrl) return fromUrl;
   }
 
   // Handle _u/username directly if passed without domain
-  if (cleaned.startsWith('_u/')) {
-    cleaned = cleaned.slice(3);
+  if (str.startsWith('_u/')) {
+    str = str.slice(3);
   }
 
   // Strip leading @, trailing slashes, query parameters, hashes
-  cleaned = cleaned.replace(/^@/, '').split('/')[0].split('?')[0].split('#')[0].trim();
-  const lower = cleaned.toLowerCase();
-  if (RESERVED_WORDS.has(lower) || lower.length === 0) {
-    return '';
+  str = str.replace(/^@/, '').split('/')[0].split('?')[0].split('#')[0].trim();
+  const lower = str.toLowerCase();
+
+  // Instagram usernames: max 30 chars, alphanumeric + dots + underscores only (NO spaces, NO accents)
+  if (/^[a-zA-Z0-9._]{1,30}$/.test(lower) && !RESERVED_WORDS.has(lower)) {
+    return lower;
   }
-  return lower;
+
+  return '';
 }
 
 /**
@@ -257,131 +280,68 @@ export function extractAccountsFromHtml(htmlContent: string): RawAccountItem[] {
       const parser = new DOMParser();
       const doc = parser.parseFromString(htmlContent, 'text/html');
 
-      // Instagram wraps each entry in a top-level div with class "pam" or "_a6-g"
-      let blocks = doc.querySelectorAll('div.pam, div._a6-g');
-      if (blocks.length === 0) {
-        blocks = doc.querySelectorAll('div._a6-p');
-      }
+      // In all Instagram HTML exports, each profile is an anchor tag with instagram.com link
+      const links = doc.querySelectorAll('a[href*="instagram.com"]');
+      links.forEach((link) => {
+        const href = link.getAttribute('href') || '';
+        const rawText = link.textContent?.trim() || '';
 
-      if (blocks.length > 0) {
-        blocks.forEach((block) => {
-          let username = '';
-          let displayName = '';
-          let href = '';
-          let timestamp: number | undefined;
+        // Priority 1: Extract handle from href URL (the canonical source of truth)
+        let username = extractHandleFromUrl(href);
 
-          const h2 = block.querySelector('h2');
-          if (h2 && h2.textContent?.trim()) {
-            const rawH2 = h2.textContent.trim();
-            const normH2 = normalizeUsername(rawH2);
-            if (normH2) {
-              username = normH2;
-              displayName = rawH2;
-            }
-          }
+        // Priority 2: If URL did not have it, try link text only if it's a valid handle pattern
+        if (!username) {
+          username = normalizeUsername(rawText);
+        }
 
-          const link = block.querySelector('a[href*="instagram.com"]');
-          if (link) {
-            href = link.getAttribute('href') || '';
-            const linkText = link.textContent?.trim() || '';
-            if (!username) {
-              username = normalizeUsername(linkText) || normalizeUsername(href);
-            }
-            if (!displayName && linkText && !linkText.startsWith('http') && !linkText.includes('instagram.com')) {
-              displayName = linkText;
-            }
-          }
+        if (username && !RESERVED_WORDS.has(username)) {
+          // Parent container for timestamp
+          const container = link.closest('div.pam, div._a6-g, div._a6-h, div._a6-p, li, tr, td') || link.parentElement;
+          const blockText = container?.textContent || '';
+          const timestamp = parseInstagramDate(blockText);
 
-          const blockText = block.textContent || '';
-          timestamp = parseInstagramDate(blockText);
+          // Display name: use link text if it's a real name and not a raw URL
+          const displayName = rawText && !rawText.startsWith('http') && !rawText.includes('instagram.com')
+            ? rawText
+            : username;
 
-          if (username && !RESERVED_WORDS.has(username)) {
-            results.push({
-              username,
-              displayName: displayName || username,
-              href: href.startsWith('http') ? href : `https://www.instagram.com/${username}/`,
-              timestamp,
-            });
-          }
-        });
-      }
-
-      // If blocks yielded nothing, search direct links
-      if (results.length === 0) {
-        const links = doc.querySelectorAll('a[href*="instagram.com"]');
-        links.forEach((link) => {
-          const href = link.getAttribute('href') || '';
-          const text = link.textContent?.trim() || '';
-          const norm = normalizeUsername(text) || normalizeUsername(href);
-          if (norm && !RESERVED_WORDS.has(norm)) {
-            const parentContainer = link.closest('div.pam, div._a6-g, div._a6-p, li, td') || link.parentElement;
-            const parentText = parentContainer?.textContent || '';
-            const timestamp = parseInstagramDate(parentText);
-            const displayName = text && !text.startsWith('http') && !text.includes('instagram.com') ? text : norm;
-            results.push({
-              username: norm,
-              displayName,
-              href: href.startsWith('http') ? href : `https://www.instagram.com/${norm}/`,
-              timestamp,
-            });
-          }
-        });
-      }
+          results.push({
+            username,
+            displayName,
+            href: href.startsWith('http') ? href : `https://www.instagram.com/${username}/`,
+            timestamp,
+          });
+        }
+      });
     } catch (err) {
-      console.warn('DOMParser failed, falling back to regex block parser:', err);
+      console.warn('DOMParser failed, falling back to regex parser:', err);
     }
   }
 
-  // 2. Fallback to regex block extraction if DOMParser produced 0 items
+  // 2. Fallback to regex if DOMParser produced 0 items
   if (results.length === 0) {
-    const pamBlocks = htmlContent.split(/<div class="pam/i).slice(1);
-    if (pamBlocks.length > 0) {
-      for (const block of pamBlocks) {
-        const h2Match = block.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
-        const linkMatch = block.match(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
+    const linkRegex = /<a\s+[^>]*href=["']([^"']*instagram\.com[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = linkRegex.exec(htmlContent)) !== null) {
+      const href = match[1];
+      const linkText = match[2].replace(/<[^>]+>/g, '').trim();
 
-        const rawH2 = h2Match ? h2Match[1].replace(/<[^>]+>/g, '').trim() : '';
-        const href = linkMatch ? linkMatch[1] : '';
-        const linkText = linkMatch ? linkMatch[2].replace(/<[^>]+>/g, '').trim() : '';
-
-        const norm = normalizeUsername(rawH2) || normalizeUsername(linkText) || normalizeUsername(href);
-        if (!norm || RESERVED_WORDS.has(norm)) continue;
-
-        const timestamp = parseInstagramDate(block);
-        const displayName = rawH2 && !rawH2.startsWith('http')
-          ? rawH2
-          : linkText && !linkText.startsWith('http') && !linkText.includes('instagram.com')
-            ? linkText
-            : norm;
-
-        results.push({
-          username: norm,
-          displayName,
-          href: href.startsWith('http') ? href : `https://www.instagram.com/${norm}/`,
-          timestamp,
-        });
+      let username = extractHandleFromUrl(href);
+      if (!username) {
+        username = normalizeUsername(linkText);
       }
-    } else {
-      // General regex search for links
-      const linkRegex = /<a\s+[^>]*href=["'](https?:\/\/(?:www\.)?instagram\.com\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-      let match: RegExpExecArray | null;
-      while ((match = linkRegex.exec(htmlContent)) !== null) {
-        const href = match[1];
-        const linkText = match[2].replace(/<[^>]+>/g, '').trim();
-        const norm = normalizeUsername(linkText) || normalizeUsername(href);
-        if (!norm || RESERVED_WORDS.has(norm)) continue;
+      if (!username || RESERVED_WORDS.has(username)) continue;
 
-        const afterSnippet = htmlContent.slice(match.index + match[0].length, match.index + match[0].length + 300);
-        const timestamp = parseInstagramDate(afterSnippet);
-        const displayName = linkText && !linkText.startsWith('http') && !linkText.includes('instagram.com') ? linkText : norm;
+      const afterSnippet = htmlContent.slice(match.index + match[0].length, match.index + match[0].length + 300);
+      const timestamp = parseInstagramDate(afterSnippet);
+      const displayName = linkText && !linkText.startsWith('http') && !linkText.includes('instagram.com') ? linkText : username;
 
-        results.push({
-          username: norm,
-          displayName,
-          href: `https://www.instagram.com/${norm}/`,
-          timestamp,
-        });
-      }
+      results.push({
+        username,
+        displayName,
+        href: href.startsWith('http') ? href : `https://www.instagram.com/${username}/`,
+        timestamp,
+      });
     }
   }
 
@@ -403,7 +363,8 @@ export interface ParseResult {
 }
 
 function getBasename(filePath: string): string {
-  return filePath.split('/').pop()?.toLowerCase() || '';
+  const normalized = filePath.replace(/\\/g, '/');
+  return normalized.split('/').pop()?.toLowerCase() || '';
 }
 
 function isIgnoredFile(path: string): boolean {
@@ -416,11 +377,10 @@ function isFollowingFile(path: string): boolean {
   const base = getBasename(path);
   if (!base.endsWith('.json') && !base.endsWith('.html') && !base.endsWith('.htm')) return false;
 
-  // Strict match: following.html, following.json, following_1.json, seguindo.html, etc.
-  if (/^(following|seguindo)(_\d+)?\.(json|html?)$/i.test(base)) {
+  if (/^(following|seguindo)([_\-\s]\d+)?\.(json|html?)$/i.test(base)) {
     return true;
   }
-  return false;
+  return base.startsWith('following') || base.startsWith('seguindo');
 }
 
 function isFollowersFile(path: string): boolean {
@@ -428,11 +388,10 @@ function isFollowersFile(path: string): boolean {
   const base = getBasename(path);
   if (!base.endsWith('.json') && !base.endsWith('.html') && !base.endsWith('.htm')) return false;
 
-  // Strict match: followers_1.html, followers.json, seguidores_1.html, etc.
-  if (/^(followers?|seguidores?)(_\d+)?\.(json|html?)$/i.test(base)) {
+  if (/^(followers?|seguidores?)([_\-\s]\d+)?\.(json|html?)$/i.test(base)) {
     return true;
   }
-  return false;
+  return base.startsWith('followers') || base.startsWith('seguidores');
 }
 
 /**

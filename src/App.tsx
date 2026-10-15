@@ -471,23 +471,8 @@ export default function App() {
 
   // Import handler
   const handleImportComplete = (newAccounts: InstagramAccount[], newReport: ImportAuditReport) => {
-    const existingMap = new Map<string, InstagramAccount>();
-    accounts.forEach((acc) => existingMap.set(acc.id, acc));
-
-    const mergedAccounts = newAccounts.map((newAcc) => {
-      const existing = existingMap.get(newAcc.id);
-      if (existing) {
-        return {
-          ...newAcc,
-          status: existing.status,
-          statusUpdatedAt: existing.statusUpdatedAt,
-          isWhitelisted: existing.isWhitelisted,
-        };
-      }
-      return newAcc;
-    });
-
-    setAccounts(mergedAccounts);
+    // Directly replace accounts with the new imported non-followers list
+    setAccounts(newAccounts);
     setReport(newReport);
     setSelectedIds(new Set());
     setCurrentPage(1);
@@ -740,7 +725,7 @@ export default function App() {
         onClose={() => setIsReportModalOpen(false)}
         onProceedToReview={() => {
           setIsReportModalOpen(false);
-          handleStartReview();
+          setCurrentTab('dashboard');
         }}
       />
 
