@@ -1,0 +1,6 @@
+{
+  "name": "InstaClean - Unfollow Assistido para Instagram",
+  "description": "Aplicação local e segura para identificar contas que não te seguem de volta no Instagram a partir da sua exportação oficial, com revisão individual assistida e proteção de conta.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
