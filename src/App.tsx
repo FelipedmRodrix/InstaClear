@@ -26,7 +26,6 @@ import { HistoryModal } from './components/HistoryModal';
 import { ClearDataDialog } from './components/ClearDataDialog';
 import { ChevronLeft, ChevronRight, UploadCloud, ShieldAlert, Sparkles, Download, Layers } from 'lucide-react';
 import { normalizeSession } from './utils/safetyLimits';
-import { getUserUploadedDataset } from './services/realUserData';
 import { getSampleDataset } from './services/sampleData';
 
 const ITEMS_PER_PAGE = 20;
@@ -469,14 +468,14 @@ export default function App() {
     setCurrentTab('import');
   };
 
-  // Import handler
+  // Import handler - goes straight to the profiles list on the dashboard
   const handleImportComplete = (newAccounts: InstagramAccount[], newReport: ImportAuditReport) => {
     // Directly replace accounts with the new imported non-followers list
     setAccounts(newAccounts);
     setReport(newReport);
     setSelectedIds(new Set());
     setCurrentPage(1);
-    setIsReportModalOpen(true);
+    setIsReportModalOpen(false);
     setCurrentTab('dashboard');
   };
 

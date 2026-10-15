@@ -25,6 +25,49 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Official File Audit Comparison Bar */}
+      {report && (
+        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl p-4 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-100 dark:border-neutral-800/80 pb-3 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="font-bold text-xs text-neutral-900 dark:text-white">
+                Cruzamento Realizado: {report.fileName}
+              </span>
+            </div>
+            <span className="text-[11px] text-neutral-400">
+              Arquivo processado no seu navegador
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+            <div className="p-2 rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-100 dark:border-neutral-800">
+              <div className="text-[11px] text-neutral-500">Contas Seguidas</div>
+              <div className="text-base font-bold text-neutral-900 dark:text-white tabular-nums mt-0.5">
+                {report.totalFollowing}
+              </div>
+            </div>
+            <div className="p-2 rounded-xl bg-neutral-50 dark:bg-neutral-850 border border-neutral-100 dark:border-neutral-800">
+              <div className="text-[11px] text-neutral-500">Seguidores do Perfil</div>
+              <div className="text-base font-bold text-neutral-900 dark:text-white tabular-nums mt-0.5">
+                {report.totalFollowers}
+              </div>
+            </div>
+            <div className="p-2 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40">
+              <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">Seguem de Volta (Mútuos)</div>
+              <div className="text-base font-bold text-emerald-600 dark:text-emerald-400 tabular-nums mt-0.5">
+                {report.mutualCount}
+              </div>
+            </div>
+            <div className="p-2 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/40">
+              <div className="text-[11px] text-rose-700 dark:text-rose-400 font-medium">Não Seguem de Volta</div>
+              <div className="text-base font-bold text-rose-600 dark:text-rose-400 tabular-nums mt-0.5">
+                {report.notFollowingBackCount}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Primary KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {/* Não Seguem de Volta (Dominant Metric) */}
