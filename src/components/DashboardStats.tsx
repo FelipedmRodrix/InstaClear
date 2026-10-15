@@ -65,6 +65,18 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Warnings (e.g. date-range filter detected) */}
+          {report.warnings && report.warnings.length > 0 && (
+            <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+              {report.warnings.map((w, idx) => (
+                <div key={idx} className="flex items-start gap-2">
+                  <span className="font-bold text-amber-600 dark:text-amber-400 shrink-0">⚠️ Nota:</span>
+                  <span className="leading-relaxed">{w}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

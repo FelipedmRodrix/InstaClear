@@ -580,6 +580,24 @@ export async function parseInstagramZip(
     else if (type === 'followers') followerFileCandidates.push(p);
   }
 
+  // Check start_here.html to detect if export was restricted to a date range (e.g. 1 year)
+  const startHerePath = zipFiles.find((p) => p.toLowerCase().endsWith('start_here.html'));
+  if (startHerePath) {
+    try {
+      const startContent = await zipContent.files[startHerePath].async('string');
+      // Matches: Contém os dados de 15 de outubro de 2025 às 06:42 a 15 de outubro de 2026 às 06:42 que você solicitou
+      const dateMatch = startContent.match(/Cont[eé]m os dados de ([^<]+) a ([^<]+) que voc[eê] solicitou/i) ||
+                        startContent.match(/Contains data from ([^<]+) to ([^<]+) that you requested/i);
+      if (dateMatch) {
+        warnings.push(
+          `Filtro de data detectado na exportação: Este download inclui apenas interações de ${dateMatch[1].trim()} até ${dateMatch[2].trim()} (período de 1 ano). Seguidores que começaram a te seguir antes desse intervalo não foram exportados pelo Instagram. Para obter a lista completa de todos os seguidores históricos, solicite um novo download no Instagram selecionando "Todo o período" ou "Desde o início".`
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   if (followingFileCandidates.length === 0) {
     errors.push('Nenhum arquivo de contas seguidas ("following.html" ou "following.json") foi localizado no arquivo ZIP.');
   }
